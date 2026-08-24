@@ -1,154 +1,116 @@
-# Agent Explainability
+# Trustworthy Agentic AI
 
-A focused learning and research repository for understanding **Explainability of AI Agents**, with emphasis on sequential decision-making, tool use, trajectories, faithfulness, counterfactual analysis, and multi-agent behavior.
+A research-oriented learning repository exploring how to make autonomous AI agents **reliable, explainable, safe, uncertainty-aware, secure, and auditable**.
 
-## Objective
+## Trustworthiness Research Map
 
-Build a strong conceptual and practical understanding of how to **explain, evaluate, and validate agent behavior**, moving beyond conventional single-output XAI.
+The project is currently organized around seven dimensions:
 
-The main research perspective is:
+1. **Explainability & Auditability**
+   - Decision and trajectory explanations
+   - Tool-use transparency
+   - Evidence and provenance
+   - Error explanation
+   - Auditability and responsibility attribution
 
-**Agent → Trajectory → Explanation Target → Explanation Method → Evaluation**
+2. **Uncertainty Quantification & Calibration**
+   - Agent uncertainty
+   - Confidence calibration
+   - Uncertainty dynamics
+   - Tool-dependent confidence
+   - Uncertainty-aware decisions
 
-## Current Learning Scope
+3. **Reliability & Robustness**
+   - Stability across runs
+   - Perturbation robustness
+   - Distribution shifts
+   - Tool/API failures
+   - Long-horizon reliability
 
-The repository currently covers:
+4. **Safety, Verification & Constraint Satisfaction**
+   - Action and plan verification
+   - Constraint checking
+   - Runtime safeguards
+   - Safe failure and intervention
 
-1. **Agent Explainability Foundations**
-   - Difference between conventional LLM explainability and agent explainability
-   - Sequential agent behavior
-   - Trajectory as an explanation object
-
-2. **Agent Anatomy & Trajectories**
-   - State
-   - Decision
-   - Action
-   - Observation
-   - State transitions
-   - Trajectory
-
-3. **Explanation Targets**
-   - Action/tool-choice
-   - Decision
-   - Plan
-   - Evidence
-   - Outcome
-   - Trajectory/process
-
-4. **Explanation Methods**
-   - Intrinsic explanations
-   - Post-hoc explanations
-   - Self-explanations
-   - Trace-based explanations
-   - Attribution-based explanations
-   - Counterfactual explanations
-
-5. **Faithfulness vs Plausibility**
-   - Plausible explanations can still be unfaithful
-   - Difference between a convincing rationale and evidence of actual influence
-
-6. **Counterfactual Explainability**
-   - Interventions
-   - Alternative trajectories
-   - Behavioral comparison
-   - Controlled one-variable-at-a-time testing
-
-7. **Multi-Agent Explainability**
+5. **Multi-Agent Coordination & Trust**
    - Delegation
    - Communication
    - Coordination
-   - System-level explanations
-   - Distributed causality and credit assignment
+   - Distributed responsibility
+   - Inter-agent failure propagation
 
-8. **Explanation Evaluation**
-   - Faithfulness
-   - Plausibility
-   - Human usefulness
-   - Counterfactual validity
-   - Consistency
-   - Separation of task performance from explanation quality
+6. **Security, Privacy & Tool/Environment Safety**
+   - Prompt and tool attacks
+   - Data leakage
+   - Malicious tools/environments
+   - Unsafe external actions
+   - Privacy risks
 
-## Repository Structure
+7. **Evaluation, Monitoring & Assurance**
+   - Trustworthiness benchmarks
+   - Failure detection
+   - Continuous monitoring
+   - Auditing
+   - Lifecycle assurance
 
-- `notes/` — Structured learning notes and concepts
-- `papers/` — Paper summaries and research analysis
-- `experiments/` — Agent trajectories, faithfulness tests, and counterfactual experiments
-- `figures/` — Diagrams and experiment visualizations
-- `research_gaps/` — Open problems and potential research directions
-
-## Learning Roadmap
+## Current Literature Progress
 
 ### Completed
 
-- Agent Explainability Foundations
-- Agent Anatomy & Trajectories
-- Explanation Targets
-- Explanation Types & Methods
-- Faithfulness vs Plausibility
-- Counterfactual Explainability
-- Multi-Agent Explainability
-- Explanation Evaluation
+- Agent Explainability foundations
+- Agent trajectories and explanation targets
+- Faithfulness and counterfactual evaluation
+- Multi-agent explainability
+- Three representative explainability papers
+- Trustworthiness dimensions defined
+- Explainability & Auditability literature mapped
+- Uncertainty & Calibration literature mapped
 
-### Next
+### Current Literature Phase
 
-- Practical Faithfulness Testing
-- LangGraph-based Agent Explainability
-- Representative Agent Explainability Papers
-- Research Gaps and Open Problems
-- Final Agent Explainability Framework
-- Research Direction Development
+Next dimensions to investigate:
 
-## Key Research Questions
+`Reliability & Robustness`
+→ `Safety, Verification & Constraint Satisfaction`
+→ `Multi-Agent Coordination & Trust`
+→ `Security, Privacy & Tool/Environment Safety`
+→ `Evaluation, Monitoring & Assurance`
 
-The repository is centered around questions such as:
+## Literature Selection Strategy
 
-- What exactly should be explained in an AI agent?
-- How can agent actions, decisions, plans, and trajectories be explained?
-- How can we distinguish plausible explanations from faithful explanations?
-- Can counterfactual interventions validate explanations?
-- How can explanations be evaluated quantitatively and behaviorally?
-- How can delegation, communication, and coordination be explained in multi-agent systems?
-- What aspects of current agent explainability remain unreliable or underexplored?
+Papers are first shortlisted using:
 
-## Practical Framework
+`2024–2026`
++ `Agent-specific`
++ `Meaningful contribution`
++ `Empirical evaluation`
++ `Practical relevance`
++ `Clear limitation/open problem`
 
-A useful way to analyze any agent explanation method is:
+The shortlist is then narrowed by comparing:
 
-**1. What is being explained?**
+`Problem → Method → Evaluation → Result → Limitation → Research Opportunity`
 
-Action / Decision / Plan / Evidence / Outcome / Trajectory / Interaction
+## Emerging Research Direction
 
-**2. How is it explained?**
+A current research hypothesis in the explainability area is:
 
-Trace / Attribution / Self-explanation / Post-hoc / Counterfactual / Intrinsic
+`Agent Error`
+→ `Internal + External Explanations`
+→ `Candidate Error Factors`
+→ `Controlled Counterfactual Tests`
+→ `Behavioral Evidence`
+→ `Error Explanation`
 
-**3. What evidence supports the explanation?**
-
-Execution trace / Behavioral change / Intervention / Human evaluation / Other evidence
-
-**4. How is it evaluated?**
-
-Faithfulness / Plausibility / Usefulness / Counterfactual validity / Consistency
+The objective is not to claim recovery of a single true causal mechanism, but to identify and validate **behaviorally relevant factors** that help explain agent failures.
 
 ## Current Status
 
-**Stage:** Conceptual foundation completed
+**Stage:** Trustworthy Agentic AI literature mapping
 
-**Focus:** Moving from theory toward practical experiments, paper analysis, and research-gap identification.
+**Completed:** Explainability, Auditability, Uncertainty & Calibration
 
-## Intended Outcome
+**Next:** Reliability, Safety/Verification, Multi-Agent Trust, Security, Evaluation
 
-The goal is to develop enough understanding to:
-
-- Analyze current Agent Explainability research critically
-- Design basic explainability experiments
-- Evaluate whether explanations are actually faithful
-- Work with agent trajectories and counterfactual interventions
-- Identify meaningful research gaps
-- Develop a research direction in trustworthy and explainable autonomous agents
-
-## Learning Principle
-
-> A convincing explanation is not automatically a faithful explanation.
-
-The repository therefore emphasizes **behavioral evidence, controlled interventions, trajectory analysis, and evaluation**, rather than relying only on natural-language rationales generated by the agent.
+The project will select a final research direction only after comparing the trustworthiness landscape and identifying a meaningful, experimentally testable gap.

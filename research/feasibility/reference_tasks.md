@@ -177,3 +177,75 @@ Steps: 5 total, 4 checkable
 | 49   | 8     | 7         | 0.88  |
 | 1305 | 5     | 4         | 0.80  |
 | **Total** | **16** | **14** | **0.875** |
+
+
+---
+
+## Task 1753
+
+Task ID: 1753 (dev, hard)
+Question: What are the applicable fee IDs for Belles_cookbook_store in March 2023?
+Answer format: comma-separated list of fee IDs
+
+Note: "applicable" is not defined in the manual. Working definition (reproduces
+the public answer): a rule applies if its merchant-level and monthly conditions
+match AND at least one March transaction matches its transaction-level
+conditions (card_scheme, is_credit, aci, intracountry).
+
+Step 1:
+Action: Look up the merchant in `merchant_data.json`
+Expected intermediate result: account_type R, capture_delay '1' (falls in
+the '<3' bucket), merchant_category_code 5942, acquirer lehman_brothers
+Objectively checkable: Yes
+
+Step 2:
+Action: Filter payments to the merchant, year 2023, March
+(day_of_year 60-90, non-leap year)
+Expected intermediate result: 1277 transactions
+Objectively checkable: Yes
+
+Step 3:
+Action: Compute March monthly volume (sum of eur_amount) and fraud level
+(fraud volume / total volume, in %)
+Expected intermediate result: 116436.32 EUR, 10.2488%
+Objectively checkable: Yes
+
+Step 4:
+Action: Filter fee rules on merchant-level and monthly conditions
+(account_type, MCC, capture_delay, monthly_volume, monthly_fraud_level;
+null/empty = wildcard)
+Expected intermediate result: 47 rules: 36, 51, 53, 64, 65, 80, 107, 123,
+150, 163, 183, 231, 249, 276, 286, 304, 347, 381, 384, 394, 428, 454, 473,
+477, 498, 536, 556, 572, 595, 608, 626, 631, 678, 680, 709, 725, 741, 813,
+849, 861, 868, 871, 892, 924, 939, 942, 960
+Objectively checkable: Yes (compare as a set)
+
+Step 5:
+Action: Keep rules matching at least one March transaction
+(card_scheme, is_credit, aci, intracountry)
+Expected intermediate result: 34 rules: 36, 51, 53, 64, 107, 123, 150, 163,
+231, 249, 276, 286, 347, 381, 384, 394, 428, 454, 473, 477, 536, 556, 572,
+595, 608, 626, 680, 709, 725, 741, 813, 868, 939, 960
+Objectively checkable: Yes (compare as a set)
+
+Step 6:
+Action: Interpret "applicable" (merchant-level match + at least one matching
+transaction; refused transactions included)
+Expected intermediate result: the definition above; the only one tested,
+and it reproduces the public answer
+Objectively checkable: No (interpretation, validated only by the public answer)
+
+Final answer: the 34 IDs from step 5 (matches public answer as a set)
+Steps: 6 total, 5 checkable
+
+---
+
+## Running tally
+
+| Task | Steps | Checkable | Ratio |
+|------|-------|-----------|-------|
+| 5    | 3     | 3         | 1.00  |
+| 49   | 8     | 7         | 0.88  |
+| 1305 | 5     | 4         | 0.80  |
+| 1753 | 6     | 5         | 0.83  |
+| **Total** | **22** | **19** | **0.86** |

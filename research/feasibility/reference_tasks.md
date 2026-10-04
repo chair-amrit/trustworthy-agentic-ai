@@ -113,3 +113,67 @@ Steps: 8 total, 7 checkable
 |------|-------|-----------|-------|
 | 5    | 3     | 3         | 1.00  |
 | 49   | 8     | 7         | 0.88  |
+
+
+---
+
+## Task 1305
+
+Task ID: 1305 (dev, hard)
+Question: For account type H and MCC description "Eating Places and
+Restaurants", what would be the average fee that the card scheme GlobalCard
+would charge for a transaction value of 10 EUR? (EUR, 6 decimals)
+Answer format: number rounded to 6 decimals
+
+Note: rule matching follows manual section 5 (null or empty list = applies to
+all values). Fee formula: fee = fixed_amount + rate * value / 10000.
+
+Step 1:
+Action: Look up the MCC code for "Eating Places and Restaurants" in
+`merchant_category_codes.csv`
+Expected intermediate result: 5812 (exactly one matching row)
+Objectively checkable: Yes
+
+Step 2:
+Action: Filter `fees.json` rules: card_scheme == GlobalCard, account_type
+contains H (or is wildcard), merchant_category_code contains 5812 (or is
+wildcard)
+Expected intermediate result: 46 rules, IDs: 5, 38, 92, 114, 140, 141, 160,
+162, 192, 204, 221, 257, 267, 276, 280, 319, 325, 357, 359, 403, 427, 428,
+456, 477, 498, 513, 556, 572, 612, 660, 666, 682, 688, 704, 709, 725, 741,
+792, 813, 861, 888, 891, 892, 899, 917, 921
+Objectively checkable: Yes (compare as a set)
+
+Step 3:
+Action: Compute the fee per matching rule for a 10 EUR transaction
+Expected intermediate result: one value per rule ID, e.g. 5: 0.199,
+38: 0.139, 725: 0.019, 921: 0.032 (full dict printed by the solution script).
+Compare with a tolerance (1e-9), since floats print as e.g. 0.15000000000000002
+Objectively checkable: Yes
+
+Step 4:
+Action: Average the 46 fees
+Expected intermediate result: 0.123217
+Objectively checkable: Yes
+
+Step 5:
+Action: Interpret "average fee" as the unweighted mean over matching rules
+(not volume-weighted)
+Expected intermediate result: unweighted mean; the only reading that
+reproduces the public answer
+Objectively checkable: No (an interpretation, validated only by the public
+answer)
+
+Final answer: 0.123217 (matches public answer)
+Steps: 5 total, 4 checkable
+
+---
+
+## Running tally
+
+| Task | Steps | Checkable | Ratio |
+|------|-------|-----------|-------|
+| 5    | 3     | 3         | 1.00  |
+| 49   | 8     | 7         | 0.88  |
+| 1305 | 5     | 4         | 0.80  |
+| **Total** | **16** | **14** | **0.875** |

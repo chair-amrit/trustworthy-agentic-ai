@@ -249,3 +249,79 @@ Steps: 6 total, 5 checkable
 | 1305 | 5     | 4         | 0.80  |
 | 1753 | 6     | 5         | 0.83  |
 | **Total** | **22** | **19** | **0.86** |
+
+
+---
+
+## Task 1871
+
+Task ID: 1871 (dev, hard)
+Question: In January 2023 what delta would Belles_cookbook_store pay if the
+relative fee of the fee with ID=384 changed to 1?
+Answer format: number rounded to 14 decimals
+
+Note: "relative fee" maps to the `rate` field. Delta = new total fee - old
+total fee over the transactions that rule 384 applies to; fixed_amount
+cancels out. The public answer carries float noise (-0.94810300000017), so
+compare with a tolerance (1e-9).
+
+Step 1:
+Action: Load merchant record and fee rule 384
+Expected intermediate result: merchant R / capture_delay '1' / MCC 5942.
+Rule 384: card_scheme NexPay, is_credit True, aci [C, B], fixed_amount 0.05,
+rate 14; account_type, capture_delay, monthly_fraud_level, monthly_volume,
+MCC and intracountry are wildcards
+Objectively checkable: Yes
+
+Step 2:
+Action: Filter payments to the merchant, year 2023, January (day_of_year 1-31)
+Expected intermediate result: 1201 transactions
+Objectively checkable: Yes
+
+Step 3:
+Action: Compute January monthly volume and fraud level
+(fraud volume / total volume, in %)
+Expected intermediate result: 113260.42 EUR, 10.3131%
+Objectively checkable: Yes
+
+Step 4:
+Action: Check that rule 384 matches the merchant/month conditions
+Expected intermediate result: True (47 merchant/month rules match, including
+384; the list is identical to March's 47). Trivially true here because every
+merchant-level field of rule 384 is a wildcard
+Objectively checkable: Yes
+
+Step 5:
+Action: Find January transactions that rule 384 applies to
+(NexPay, credit, ACI in {C, B})
+Expected intermediate result: 12 transactions, total volume 729.31 EUR
+Objectively checkable: Yes
+
+Step 6:
+Action: Compute old and new fee totals over those 12 transactions
+(rate 14 -> 1) and the delta
+Expected intermediate result: old total 1.621034, new total 0.672931,
+delta -0.948103 (closed form: (1 - 14) * 729.31 / 10000)
+Objectively checkable: Yes (tolerance 1e-9)
+
+Step 7:
+Action: Interpret the question ("relative fee" = rate; delta = new - old;
+only the affected transactions)
+Expected intermediate result: as stated in the note above
+Objectively checkable: No (interpretation, validated only by the public answer)
+
+Final answer: -0.94810300000017 (matches public answer within 1e-9)
+Steps: 7 total, 6 checkable
+
+---
+
+## Running tally
+
+| Task | Steps | Checkable | Ratio |
+|------|-------|-----------|-------|
+| 5    | 3     | 3         | 1.00  |
+| 49   | 8     | 7         | 0.88  |
+| 1305 | 5     | 4         | 0.80  |
+| 1753 | 6     | 5         | 0.83  |
+| 1871 | 7     | 6         | 0.86  |
+| **Total** | **29** | **25** | **0.86** |

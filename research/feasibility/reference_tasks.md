@@ -325,3 +325,79 @@ Steps: 7 total, 6 checkable
 | 1753 | 6     | 5         | 0.83  |
 | 1871 | 7     | 6         | 0.86  |
 | **Total** | **29** | **25** | **0.86** |
+
+
+---
+
+## Task 2697 (partially reproduced)
+
+Task ID: 2697 (dev, hard)
+Question: For Belles_cookbook_store in January, if we were to move the
+fraudulent transactions towards a different ACI, what would be the preferred
+choice considering the lowest possible fees?
+Answer format: ACI and associated cost, 2 decimals (the guideline says
+{card_scheme}:{fee}, but the public answer is an ACI: E:13.57)
+
+Note: the ACI choice (E) is reproduced; the fee value (13.57) is not.
+Tested 12 per-transaction variants and 8 aggregate-volume variants
+(mean and min aggregation, with and without scheme/credit/intracountry
+conditions). None gave 13.57.
+
+Step 1:
+Action: Filter payments to the merchant, year 2023, January
+(day_of_year 1-31)
+Expected intermediate result: 1201 transactions
+Objectively checkable: Yes
+
+Step 2:
+Action: Compute January volume and fraud level
+Expected intermediate result: 113260.42 EUR, 10.3131%
+Objectively checkable: Yes
+
+Step 3:
+Action: Filter fee rules on merchant-level and monthly conditions
+Expected intermediate result: 47 rules (same conditions as task 1871)
+Objectively checkable: Yes
+
+Step 4:
+Action: Select fraudulent January transactions (has_fraudulent_dispute)
+Expected intermediate result: 94 transactions, volume 11680.62 EUR,
+all with ACI G
+Objectively checkable: Yes
+
+Step 5:
+Action: Compute total fees for the fraudulent transactions under each
+candidate ACI (A-G)
+Expected intermediate result: not pinned down. Per-transaction totals under
+the baseline matching: E 41.66 (mean) / 16.63 (min); other ACIs differ by
+aggregation rule
+Objectively checkable: No (fee-aggregation convention not reproduced)
+
+Step 6:
+Action: Choose the ACI with the lowest total fee
+Expected intermediate result: E (lowest under strict matching in both
+mean and min modes; matches the public answer)
+Objectively checkable: Yes
+
+Step 7:
+Action: Report the associated fee
+Expected intermediate result: 13.57 (public answer); not reproduced by any
+tested variant
+Objectively checkable: No
+
+Final answer: E:13.57. ACI E reproduced, fee 13.57 not reproduced.
+Steps: 7 total, 5 checkable
+
+---
+
+## Running tally
+
+| Task | Steps | Checkable | Ratio |
+|------|-------|-----------|-------|
+| 5    | 3     | 3         | 1.00  |
+| 49   | 8     | 7         | 0.88  |
+| 1305 | 5     | 4         | 0.80  |
+| 1753 | 6     | 5         | 0.83  |
+| 1871 | 7     | 6         | 0.86  |
+| 2697 | 7     | 5         | 0.71  |
+| **Total** | **36** | **30** | **0.83** |

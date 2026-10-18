@@ -10,6 +10,14 @@ and each previous model output and observation) + the list of successfully
 executed code blocks. Nothing else is carried between steps.
 - `prefix_id` = sha1 of the canonical JSON of (task_id, messages). This is the
   exact object a frozen-prefix sample conditions on.
+- Observation messages use a fixed template, role "user":
+  `Observation:\n<stdout after marker>\n<stderr if any>`.
+  Invalid-output feedback: `Format error: <reason>`.
+- The system prompt lives in a file with a `prompt_version` string, recorded in
+  every log record.
+- Prompts use relative paths only (e.g. `data/...`). The subprocess cwd is a
+  per-run scratch dir containing the data at that relative path, so `prefix_id`
+  is identical across machines.
 
 ## 2. Action protocol (prototype v0)
 
@@ -20,6 +28,11 @@ Pipeline: LLM output -> Action parser -> Action -> Executor -> Observation.
   values.
 - Protocol is swappable: only the parser changes. Parse failures are logged
   (type="invalid") and never silently repaired, since they are a confound.
+  - Each model output must contain exactly one fenced Python block OR exactly one
+  `FINAL ANSWER:` line. Both, neither, or several code blocks -> `invalid`.
+- On invalid: log it, append the `Format error` message, continue. Never repair.
+- Termination: `final`, `max_steps` (default 10), or `max_invalid`
+  (default 3 consecutive). The last record carries `terminated_reason`.
 
 ## 3. Execution and replay
 
@@ -33,6 +46,10 @@ Pipeline: LLM output -> Action parser -> Action -> Executor -> Observation.
   length (record a `truncated` flag), no randomness or timestamps in task code.
 - Replay of prefix t = rebuild from the logged code blocks in a fresh
   subprocess. Live execution and replay use the same mechanism.
+  - Subprocess env: PYTHONUTF8=1, PYTHONHASHSEED=0.
+- "No network" is a prompt rule only in v0 (not enforced); known limitation.
+- Truncation: log `stdout_len` (untruncated length); replay compares the
+  truncated strings using the same limit.
 
 ## 4. LLM adapter
 
@@ -59,6 +76,11 @@ want_logprobs=False) -> list[Completion]`
 }
 ```
 `samples` and `logprobs` are reserved for later uncertainty work.
+- Add: `prompt_version`, `stdout_len`, `terminated_reason` (null except last record).
+- Remove `samples` from the step record. Frozen-prefix samples go in a separate
+  `samples.jsonl` keyed by `prefix_id` (added in the uncertainty phase).
+  Keep `logprobs` for the main action.
+- `run_id` is a label only and is not part of any identity check.
 
 ## Acceptance tests (before any real model)
 
@@ -66,4 +88,9 @@ want_logprobs=False) -> list[Completion]`
 2. Every logged record validates against the schema above.
 3. Replay: for every step t, rebuilding from logged code blocks in a fresh
    subprocess reproduces the logged stdout exactly.
-4. Re-running the whole fake run gives an identical log (apart from timestamps).
+4. Re-running the whole fake run gives an identical log apart from `timestamp`
+   and `run_id`.
+5. Failure paths: a scripted run containing one failing code block and one
+   invalid output. Both are logged, the failing block is not added to the
+   executed list, the invalid output triggers a `Format error` message, the
+   final answer is still reached, and replay still matches.

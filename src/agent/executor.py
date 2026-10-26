@@ -128,6 +128,10 @@ def format_observation(r: ExecResult) -> str:
     out = r.stdout.rstrip("\n")
     err = r.stderr.rstrip("\n")
     parts = ["Observation:"]
+    if r.timed_out:
+        parts.append("Execution timed out.")
+    elif r.returncode != 0:
+        parts.append(f"Execution failed (return code {r.returncode}).")
     if out:
         parts.append(out)
     if err:

@@ -78,6 +78,21 @@ def test_failed_prior_block_raises(tmp_path):
 
 def test_format_observation_variants():
     assert format_observation(ExecResult("42\n", "", 0, False, False, 3)) == "Observation:\n42"
-    assert format_observation(ExecResult("a\n", "err\n", 1, False, False, 2)) == "Observation:\na\nerr"
+    assert format_observation(ExecResult("a\n", "err\n", 1, False, False, 2)) == (
+        "Observation:\nExecution failed (return code 1).\na\nerr"
+    )
     assert format_observation(ExecResult("", "", 0, False, False, 0)) == "Observation:\n(no output)"
     assert format_observation(ExecResult("x", "", 0, False, True, 9)).endswith("[output truncated]")
+
+
+def test_failed_execution_without_output_is_not_success_no_output():
+    failed = format_observation(ExecResult("", "", 1, False, False, 0))
+    succeeded = format_observation(ExecResult("", "", 0, False, False, 0))
+    assert failed == "Observation:\nExecution failed (return code 1).\n(no output)"
+    assert failed != succeeded
+
+
+def test_timeout_is_explicit_in_observation():
+    assert format_observation(ExecResult("", "", -1, True, False, 0)) == (
+        "Observation:\nExecution timed out.\n(no output)"
+    )

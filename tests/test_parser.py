@@ -55,6 +55,11 @@ def test_bare_fence_invalid():
     assert parse_action("```\nprint(1)\n```").type == "invalid"
 
 
+def test_bare_code_fence_with_final_answer_is_invalid():
+    a = parse_action("```\nprint(1)\n```\nFINAL ANSWER: 1")
+    assert a.type == "invalid" and "code fence" in a.reason
+
+
 def test_empty_code_invalid():
     assert parse_action("```python\n\n```").type == "invalid"
 

@@ -50,6 +50,8 @@ def parse_action(text: str) -> Action:
         return Action("code", code)
 
     if len(finals) == 1:
+        if "```" in text:
+            return _invalid("output contains a code fence with a FINAL ANSWER line")
         answer = finals[0].strip()
         if not answer:
             return _invalid("the FINAL ANSWER line is empty")

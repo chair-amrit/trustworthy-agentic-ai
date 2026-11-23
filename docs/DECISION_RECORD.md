@@ -222,3 +222,21 @@ Most importantly, challenge my assumptions when necessary. Do not agree with me 
 Our goal is not to make the project look impressive on paper. It is to produce results that are genuinely convincing to demanding ML reviewers.
 
 Please treat this message as the current decision record for the project and proceed from here.
+
+# 11. Decisions log
+
+**D5. Execution isolation on Windows — decided 23 November 2026.**
+Real runs happen on the Windows laptop, without Docker, WSL2 or a remote VM.
+- The agent's working folder sits outside the repository.
+- Answer files (oracles, contracts) are never placed inside the working folder.
+- Code the agent runs gets no API keys (environment allowlist).
+- Every logged code block is scanned for paths outside the working folder. Any run that
+  touches such a path is excluded from analysis.
+- Limitation: a local subprocess is not a secure sandbox. These rules reduce and detect
+  leakage; they do not prevent it.
+
+**D13. Two tracks — decided 23 November 2026.**
+- Track A (December minor project): extend the baseline-v0 harness.
+- Track B (after exams): full LangGraph rebuild per docs/AGENT_SPEC_AND_BUILD_PLAN.md.
+- Track A is the December deliverable. Track B keeps the research-quality goal from §1;
+  the statement there that the December deadline is no longer relevant applies to Track B.

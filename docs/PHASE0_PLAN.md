@@ -220,7 +220,7 @@ New dependencies, each explained and pinned to exact versions checked on PyPI at
 - Constraint: 4 GB VRAM and 7.8 GB RAM locally.
 - Logprob and tool-call support differ by runtime.
 
-**D5. Execution isolation on Windows.**
+**D5. Execution isolation on Windows.** → decided 23 Nov 2026, see DECISION_RECORD §11.
 - Options: Docker Desktop (needs a WSL2 install; neither is present), a WSL2 Linux sandbox, a remote Linux VM or server, Windows Sandbox (available on Win 11 Pro but hard to automate).
 - In every case the local subprocess stays dev-only and labelled non-sandboxed.
 

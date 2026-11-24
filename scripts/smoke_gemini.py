@@ -31,7 +31,7 @@ ENV_PATH = ROOT / ".env"
 TASKS_PATH = ROOT / "tasks" / "dev_tasks.json"
 OUT_PATH = ROOT / "runs" / "smoke_gemini.json"
 
-MODEL_ID = "gemini-3.5-flash-lite"
+MODEL_ID = "gemini-3.1-flash-lite"
 THINKING_LEVEL = "minimal"
 TEMPERATURE = 1.0          # Google's recommended default for Gemini 3
 MAX_OUTPUT_TOKENS = 1024   # thinking tokens count toward this limit

@@ -72,12 +72,17 @@ def run_agent(
     model: Model,
     logger: StepLogger,
     *,
+    workdir: Path | str,
     run_id: str = "run",
     max_steps: int = config.MAX_STEPS,
     max_invalid: int = config.MAX_INVALID,
     temperature: float = 0.0,
 ) -> RunResult:
-    """Run one task until a protocol-valid final answer or a configured limit."""
+    """Run one task until a protocol-valid final answer or a configured limit.
+
+    ``workdir`` is the run's working folder (see workspace.create_workspace);
+    executed code runs there and nowhere else by default.
+    """
     if max_steps < 1 or max_invalid < 1:
         raise ValueError("max_steps and max_invalid must be at least 1")
 
@@ -112,7 +117,7 @@ def run_agent(
             messages.append({"role": "user", "content": observation})
         elif action.type == "code":
             invalid_count = 0
-            execution = run_step(prior_codes, action.payload)
+            execution = run_step(prior_codes, action.payload, workdir)
             observation = format_observation(execution)
             if execution.ok:
                 prior_codes.append(action.payload)

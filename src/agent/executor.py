@@ -101,7 +101,7 @@ def _env(tmp_dir: Path) -> dict:
 def run_step(
     prior_codes: list[str],
     code: str,
-    workdir: Path | str = config.DATA_ROOT,
+    workdir: Path | str,
     timeout_s: int = config.TIMEOUT_S,
     max_chars: int = config.MAX_OBS_CHARS,
 ) -> ExecResult:

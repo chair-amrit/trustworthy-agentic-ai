@@ -60,11 +60,41 @@ class ExecResult:
         return self.returncode == 0 and not self.timed_out
 
 
-def _env() -> dict:
-    env = os.environ.copy()
-    env["PYTHONUTF8"] = "1"
-    env["PYTHONHASHSEED"] = "0"
-    env.pop("PYTHONPATH", None)
+# Strict allowlist (D5): the child starts from an EMPTY environment and gets
+# only these variables from the parent. Everything else (API keys, tokens,
+# HOME/USERPROFILE/APPDATA, PYTHONPATH, ...) is dropped.
+ENV_PASSTHROUGH = (
+    "SYSTEMROOT",              # needed by Python's random/crypto/socket on Windows
+    "WINDIR",
+    "PATH",                    # DLL lookup for numpy/pandas
+    "PATHEXT",
+    "COMSPEC",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+)
+ENV_FIXED = {
+    "PYTHONUTF8": "1",
+    "PYTHONHASHSEED": "0",
+    "PYTHONNOUSERSITE": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+}
+ENV_TMP_VARS = ("TEMP", "TMP", "MPLCONFIGDIR")   # all point at <workdir>/tmp
+ENV_ALLOWED = frozenset(ENV_PASSTHROUGH) | frozenset(ENV_FIXED) | frozenset(ENV_TMP_VARS)
+
+# -P: do not put the working folder on sys.path (a planted json.py/pandas.py
+#     cannot replace the real module); -s: ignore the user site-packages.
+CHILD_FLAGS = ("-P", "-s")
+
+
+def _env(tmp_dir: Path) -> dict:
+    env = {}
+    for name in ENV_PASSTHROUGH:
+        value = os.environ.get(name)
+        if value:
+            env[name] = value
+    env.update(ENV_FIXED)
+    for name in ENV_TMP_VARS:
+        env[name] = str(tmp_dir)
     return env
 
 
@@ -76,16 +106,18 @@ def run_step(
     max_chars: int = config.MAX_OBS_CHARS,
 ) -> ExecResult:
     payload = json.dumps({"prior": list(prior_codes), "code": code, "marker": MARKER})
+    tmp_dir = Path(workdir) / "tmp"
+    tmp_dir.mkdir(exist_ok=True)
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", _RUNNER],
+            [sys.executable, *CHILD_FLAGS, "-c", _RUNNER],
             input=payload,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
             cwd=str(workdir),
-            env=_env(),
+            env=_env(tmp_dir),
             timeout=timeout_s,
         )
     except subprocess.TimeoutExpired:

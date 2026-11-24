@@ -211,7 +211,7 @@ New dependencies, each explained and pinned to exact versions checked on PyPI at
   - State can include half-run failed steps; replay and isolation are harder.
 - This also settles the existing question A/B in `open_decisions.md`.
 
-**D3. First API model.**
+**D3. First API model.** → D3 decided for Track A 24 Nov 2026, see DECISION_RECORD §11.
 - Criteria: native tool calls, **log-probability availability** (central for the uncertainty research), seed support, context size, cost.
 - Provider capabilities must be checked at decision time, not assumed.
 

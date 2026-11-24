@@ -240,3 +240,19 @@ Real runs happen on the Windows laptop, without Docker, WSL2 or a remote VM.
 - Track B (after exams): full LangGraph rebuild per docs/AGENT_SPEC_AND_BUILD_PLAN.md.
 - Track A is the December deliverable. Track B keeps the research-quality goal from §1;
   the statement there that the December deadline is no longer relevant applies to Track B.
+
+**D3. First model (Track A only) — decided 24 November 2026.**
+- gemini-3.1-flash-lite via the Gemini API free tier, google-genai==3.6.1.
+- Settings: temperature 1.0, thinking_level "minimal", max_output_tokens 1024.
+  - Temperature: "For Gemini 3, we strongly recommend keeping the temperature parameter at
+    its default value of 1.0" (https://docs.cloud.google.com/vertex-ai/generative-ai/docs/start/gemini-3-prompting-guide).
+- Reason: gemini-3.5-flash-lite returned 503 UNAVAILABLE on 3 of 3 task-prompt calls on
+  24 Nov 2026; gemini-3.1-flash-lite succeeded on the same request.
+- Limitations:
+  - The model ID has no version suffix.
+  - Earliest shutdown is 7 May 2027 (released 7 May 2026;
+    https://ai.google.dev/gemini-api/docs/deprecations).
+  - Free-tier prompts may be used by Google (pricing page, free tier; not checked per model;
+    https://ai.google.dev/gemini-api/docs/pricing).
+  - Log-probability support not checked (not needed for Track A; Track B checks it).
+- Track B's model is chosen after exams.

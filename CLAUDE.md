@@ -53,8 +53,11 @@ agents, and how do they relate to uncertainty and correctness during execution?
   - Every logged code block is scanned for paths outside the working folder. Any run that
     touches one is excluded.
   - This is not a sandbox. The subprocess can still reach anything the user account can.
-- Still open (never decide silently): D3 (first free API model).
-  D1, D2, D4, D6–D12 deferred to Track B (see docs/PHASE0_PLAN.md §6).
+- D3 decided 24 Nov 2026 (Track A only): gemini-3.1-flash-lite, Gemini API free tier,
+  google-genai==3.6.1; temperature 1.0, thinking_level "minimal", max_output_tokens 1024.
+  Track B's model is chosen after exams.
+- Still open (never decide silently): D1, D2, D4, D6–D12, deferred to Track B
+  (see docs/PHASE0_PLAN.md §6).
   Decisions log: docs/DECISION_RECORD.md §11.
 - Only 10 DABStep dev tasks have public answers; more tasks need own validated
   specifications, generated task families, or another benchmark.

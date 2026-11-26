@@ -58,6 +58,7 @@ def write_run_outputs(
     result: RunResult,
     ws: Workspace,
     runs_dir: Path = RUNS_DIR,
+    extra: dict | None = None,
 ) -> dict:
     """Write runs/<run_id>.manifest.json and append flags to runs/review_list.jsonl.
 
@@ -75,6 +76,7 @@ def write_run_outputs(
         "input_changes": report["input_changes"],
         "path_flags": list(result.path_flags),
         **flags,
+        **(extra or {}),
     }
     runs_dir.mkdir(parents=True, exist_ok=True)
     (runs_dir / f"{run_id}.manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

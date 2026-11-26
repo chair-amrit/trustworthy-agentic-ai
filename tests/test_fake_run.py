@@ -36,6 +36,8 @@ def test_fake_run_reproduces_golden_log(tmp_path):
     )
     got = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     want = [json.loads(line) for line in GOLDEN.read_text(encoding="utf-8").splitlines()]
+    # Slice e added one field to every step record; the golden file predates it.
+    assert [r.pop("path_flags") for r in got] == [[], []]
     assert got == want
     assert input_report(ws)["flagged"] is False
 

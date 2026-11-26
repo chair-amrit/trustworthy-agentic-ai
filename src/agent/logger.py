@@ -29,6 +29,7 @@ STEP_FIELDS = frozenset(
         "stdout_len",
         "logprobs",
         "terminated_reason",
+        "path_flags",
     }
 )
 

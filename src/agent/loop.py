@@ -10,6 +10,7 @@ from .executor import ExecResult, format_observation, run_step
 from .llm import Model, ScriptExhaustedError
 from .logger import StepLogger
 from .parser import Action, format_error, parse_action
+from .pathscan import scan_code
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,9 @@ class RunResult:
     # Always None from run_agent: the loop never reads answers (D9). Run scripts
     # fill it from tasks/dev_tasks.json after the run returns.
     matches_reference: bool | None = None
+    # D5 code-scan flags of all steps (each dict also carries "step"). The run
+    # keeps going when a step is flagged; scripts merge this with the checksum flag.
+    path_flags: tuple = ()
 
 
 def _task_prompt(task: Mapping[str, object]) -> str:
@@ -45,6 +49,7 @@ def _record(
     execution: ExecResult | None = None,
     temperature: float = 0.0,
     terminated_reason: str | None = None,
+    path_flags: list | None = None,
 ) -> dict[str, object]:
     return {
         "run_id": run_id,
@@ -65,6 +70,7 @@ def _record(
         "truncated": execution.truncated if execution else False,
         "stdout_len": execution.stdout_len if execution else 0,
         "terminated_reason": terminated_reason,
+        "path_flags": list(path_flags or []),
     }
 
 
@@ -94,6 +100,7 @@ def run_agent(
         {"role": "user", "content": _task_prompt(task)},
     ]
     prior_codes: list[str] = []
+    run_flags: list[dict[str, object]] = []
     invalid_count = 0
     task_id = task.get("task_id")
     model_name = getattr(model, "model_name", type(model).__name__)
@@ -102,7 +109,7 @@ def run_agent(
         try:
             completions = model.generate(messages, n=1, temperature=temperature)
         except ScriptExhaustedError:
-            return RunResult(None, "model_exhausted", None)
+            return RunResult(None, "model_exhausted", None, tuple(run_flags))
         if len(completions) != 1:
             raise ValueError("model.generate(n=1) must return exactly one completion")
 
@@ -111,6 +118,9 @@ def run_agent(
         messages.append({"role": "assistant", "content": completion.text})
         observation: str | None = None
         execution: ExecResult | None = None
+        # D5 scan of the logged code block. The run is NOT stopped on a flag.
+        step_flags = scan_code(action.payload) if action.type == "code" else []
+        run_flags.extend({"step": step, **f} for f in step_flags)
 
         if action.type == "invalid":
             invalid_count += 1
@@ -147,12 +157,13 @@ def run_agent(
                 execution=execution,
                 temperature=temperature,
                 terminated_reason=terminated_reason,
+                path_flags=step_flags,
             )
         )
 
         if action.type == "final":
-            return RunResult(action.payload, "final")
+            return RunResult(action.payload, "final", None, tuple(run_flags))
         if terminated_reason is not None:
-            return RunResult(None, terminated_reason, None)
+            return RunResult(None, terminated_reason, None, tuple(run_flags))
 
     raise AssertionError("unreachable: loop exits only by returning")

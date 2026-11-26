@@ -17,3 +17,19 @@ MAX_OBS_CHARS = 2000    # observation truncation limit
 MAX_STEPS = 10          # termination: step budget
 MAX_INVALID = 3         # termination: consecutive invalid outputs
 PROMPT_VERSION = "system_v0"
+
+# --- Real model backend (D3, Track A only; decided 24 Nov 2026) -------------
+ENV_PATH = REPO_ROOT / ".env"           # MODEL_API_KEY, read in the parent only
+GEMINI_MODEL_ID = "gemini-3.1-flash-lite"
+GEMINI_TEMPERATURE = 1.0                # Google's recommended default for Gemini 3
+GEMINI_THINKING_LEVEL = "minimal"
+GEMINI_MAX_OUTPUT_TOKENS = 1024         # thinking tokens count toward this limit
+GEMINI_SDK = "google-genai==3.6.1"
+
+# Retries (our own; the SDK's retries are switched off): only these HTTP statuses,
+# plus network/connection errors and timeouts (see llm.is_transient_network_error),
+# waiting these many seconds before retry 1, 2, 3, 4. Then the run stops ("api_failed").
+API_RETRY_STATUSES = (429, 500, 503)
+API_RETRY_WAITS_S = (5, 15, 45, 90)
+API_MAX_REQUESTS_PER_MINUTE = 12        # pacing; every attempt counts as a request
+API_REQUEST_TIMEOUT_S = 120             # per attempt; a hung call fails as a timeout

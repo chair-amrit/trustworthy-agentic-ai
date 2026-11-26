@@ -7,7 +7,7 @@ from typing import Mapping
 
 from . import config
 from .executor import ExecResult, format_observation, run_step
-from .llm import Model, ScriptExhaustedError
+from .llm import ApiFailedError, Model, ScriptExhaustedError
 from .logger import StepLogger
 from .parser import Action, format_error, parse_action
 from .pathscan import scan_code
@@ -110,6 +110,9 @@ def run_agent(
             completions = model.generate(messages, n=1, temperature=temperature)
         except ScriptExhaustedError:
             return RunResult(None, "model_exhausted", None, tuple(run_flags))
+        except ApiFailedError:
+            # Details (status, every attempt) are in the model's call log.
+            return RunResult(None, "api_failed", None, tuple(run_flags))
         if len(completions) != 1:
             raise ValueError("model.generate(n=1) must return exactly one completion")
 

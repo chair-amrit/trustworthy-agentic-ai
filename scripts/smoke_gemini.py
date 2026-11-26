@@ -39,19 +39,7 @@ MAX_OUTPUT_TOKENS = 1024   # thinking tokens count toward this limit
 PREVIEW_CHARS = 500
 
 
-def read_env_key(path: Path, name: str = "MODEL_API_KEY") -> str | None:
-    """Return the value of ``name`` from a simple KEY=VALUE .env file, or None."""
-    if not path.exists():
-        return None
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        if key.strip() == name:
-            value = value.strip().strip('"').strip("'")
-            return value or None
-    return None
+from agent.envfile import read_env_key  # noqa: E402,F401  (shared with GeminiLLM)
 
 
 def build_prompts() -> dict[str, dict[str, str | None]]:

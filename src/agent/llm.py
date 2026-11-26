@@ -179,6 +179,8 @@ class GeminiLLM:
         self.call_log_path = Path(call_log_path) if call_log_path else None
         self.call_records: list[dict] = []
         self._calls = 0
+        self.run_id: str | None = None
+        self.step: int | None = None
 
         key = api_key or read_env_key(Path(env_path) if env_path else config.ENV_PATH)
         self._secret = key  # kept only to redact error text; never logged
@@ -199,6 +201,23 @@ class GeminiLLM:
 
     def __repr__(self) -> str:  # never show the key
         return f"GeminiLLM(model={self.model_name!r})"
+
+    # -- run/step context (links the call log to the step log) ------------
+    def start_run(self, run_id: str, call_log_path=None) -> None:
+        """Start a new run: new call log, fresh per-run records. Pacing state is kept,
+        so back-to-back runs still respect the requests-per-minute limit."""
+        from pathlib import Path
+
+        self.run_id = run_id
+        self.step = None
+        self.call_log_path = Path(call_log_path) if call_log_path else None
+        self.call_records = []
+        self._calls = 0
+
+    def begin_step(self, run_id: str, step: int) -> None:
+        """Called by run_agent before each model call."""
+        self.run_id = run_id
+        self.step = step
 
     # -- settings ---------------------------------------------------------
     def settings(self, seed: int | None = None) -> dict[str, object]:
@@ -319,6 +338,8 @@ class GeminiLLM:
         self._calls += 1
         contents, cfg = self._build_request(messages, seed)
         record: dict[str, object] = {
+            "run_id": self.run_id,
+            "step": self.step,
             "call_index": self._calls,
             "ts_utc": _utc_now(),
             "settings": self.settings(seed),

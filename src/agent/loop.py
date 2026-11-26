@@ -106,6 +106,10 @@ def run_agent(
     model_name = getattr(model, "model_name", type(model).__name__)
 
     for step in range(1, max_steps + 1):
+        # Optional hook so a real model can tag its call log with (run_id, step).
+        begin_step = getattr(model, "begin_step", None)
+        if callable(begin_step):
+            begin_step(run_id, step)
         try:
             completions = model.generate(messages, n=1, temperature=temperature)
         except ScriptExhaustedError:

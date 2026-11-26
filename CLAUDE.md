@@ -27,9 +27,15 @@ agents, and how do they relate to uncertainty and correctness during execution?
 
 ## Repo map
 - src/agent/: parser.py, executor.py, answers.py, logger.py, llm.py (FakeLLM), loop.py
-  (Track B replaces it with a LangGraph graph), config.py, prompts/
-- tests/ (pytest; tests/golden/fake_task_5.jsonl is the baseline fake-run log), scripts/,
-  tasks/dev_tasks.json (10 DABStep dev tasks with public answers), research/, docs/ (build spec)
+  (Track B replaces it with a LangGraph graph), config.py, prompts/,
+  workspace.py (per-run working folder, read-only inputs, checksums),
+  tasks.py (agent-side loader, refuses tasks with "answer"),
+  pathscan.py (ast path scan, run flags, review list)
+- tests/ (pytest; tests/golden/fake_task_5.jsonl is the baseline fake-run log), scripts/
+  (incl. make_agent_tasks.py: regenerates tasks/agent/ from tasks/dev_tasks.json),
+  tasks/dev_tasks.json (10 DABStep dev tasks with public answers; evaluator side only),
+  tasks/agent/dabstep_dev.json (same tasks without answers; the only file the agent side loads),
+  research/, docs/ (build spec)
 - data/ and runs/ are git-ignored. Never commit .env.
 - Git tag baseline-v0 marks the working baseline harness. Never modify or delete it.
 
@@ -48,11 +54,26 @@ agents, and how do they relate to uncertainty and correctness during execution?
 - D5 decided 23 Nov 2026 (execution isolation): real runs happen on the Windows laptop.
   - The agent's working folder sits outside the repo.
   - Answer files are never inside the working folder.
-  - Code the agent runs gets no API keys. Not implemented yet: executor.py currently copies
-    all of os.environ into the child process.
-  - Every logged code block is scanned for paths outside the working folder. Any run that
-    touches one is excluded.
+  - Code the agent runs gets no API keys.
+  - Every logged code block is scanned for paths outside the working folder. Flagged runs
+    are listed in runs/review_list.jsonl for manual review; a run is excluded if review
+    confirms an attempt to access a path outside the working folder. Excluded runs are kept
+    and reported, never deleted.
   - This is not a sandbox. The subprocess can still reach anything the user account can.
+- Track A step 1 (safety) built 24–26 Nov 2026:
+  - Env allowlist: the child starts from an empty environment plus a fixed list
+    (executor.py); started with -P -s (no imports from the working folder, no user site).
+  - Per-run working folder D:\tagent_work\<run_id>\ (config.WORK_ROOT; workspace.py);
+    an existing run_id or a folder inside the repo is refused; folders are kept after runs.
+  - Inputs copied into it read-only, SHA-256 checksums before and after; a change flags the run.
+  - Answer-free agent task file tasks/agent/dabstep_dev.json (scripts/make_agent_tasks.py;
+    tasks.py refuses any task with "answer"). run_agent never reads answers; scripts fill
+    matches_reference from tasks/dev_tasks.json after the run.
+  - Path scan (pathscan.py, ast only): path_flags on every step, run-level flagged + reasons
+    in runs/<run_id>.manifest.json, flagged lines appended to runs/review_list.jsonl.
+  - DABStep folders in the Hugging Face cache deleted 26 Nov 2026.
+  - Limits: not a sandbox; the scan catches paths written in the code (mentions), not what
+    the code actually touched; tasks/dev_tasks.json (with answers) is still in the repo.
 - D3 decided 24 Nov 2026 (Track A only): gemini-3.1-flash-lite, Gemini API free tier,
   google-genai==3.6.1; temperature 1.0, thinking_level "minimal", max_output_tokens 1024.
   Track B's model is chosen after exams.

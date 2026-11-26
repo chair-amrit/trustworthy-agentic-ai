@@ -230,10 +230,13 @@ Real runs happen on the Windows laptop, without Docker, WSL2 or a remote VM.
 - The agent's working folder sits outside the repository.
 - Answer files (oracles, contracts) are never placed inside the working folder.
 - Code the agent runs gets no API keys (environment allowlist).
-- Every logged code block is scanned for paths outside the working folder. Any run that
-  touches such a path is excluded from analysis.
+- Every logged code block is scanned for paths outside the working folder. Flagged runs are
+  listed in runs/review_list.jsonl for manual review; a run is excluded if review confirms an
+  attempt to access a path outside the working folder. Excluded runs are kept and reported,
+  never deleted.
 - Limitation: a local subprocess is not a secure sandbox. These rules reduce and detect
   leakage; they do not prevent it.
+- Implemented 24–26 Nov 2026 (Track A, step 1); see CLAUDE.md for the limits.
 
 **D13. Two tracks — decided 23 November 2026.**
 - Track A (December minor project): extend the baseline-v0 harness.

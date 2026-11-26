@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Mapping
 
 from . import config
-from .answers import answers_match
 from .executor import ExecResult, format_observation, run_step
 from .llm import Model, ScriptExhaustedError
 from .logger import StepLogger
@@ -17,7 +16,9 @@ from .parser import Action, format_error, parse_action
 class RunResult:
     final_answer: str | None
     terminated_reason: str
-    matches_reference: bool | None
+    # Always None from run_agent: the loop never reads answers (D9). Run scripts
+    # fill it from tasks/dev_tasks.json after the run returns.
+    matches_reference: bool | None = None
 
 
 def _task_prompt(task: Mapping[str, object]) -> str:
@@ -150,13 +151,7 @@ def run_agent(
         )
 
         if action.type == "final":
-            expected = task.get("answer")
-            matches = (
-                answers_match(action.payload, str(expected))
-                if expected is not None
-                else None
-            )
-            return RunResult(action.payload, "final", matches)
+            return RunResult(action.payload, "final")
         if terminated_reason is not None:
             return RunResult(None, terminated_reason, None)
 

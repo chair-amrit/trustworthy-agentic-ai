@@ -7,15 +7,15 @@ from agent import config
 from agent.llm import FakeLLM
 from agent.logger import StepLogger
 from agent.loop import run_agent
+from agent.tasks import load_agent_task
 from agent.workspace import create_workspace, input_report
-from scripts.run_fake import TASK_5_CODE, TASKS_PATH
+from scripts.run_fake import TASK_5_CODE, fill_matches_reference
 
 GOLDEN = Path(__file__).parent / "golden" / "fake_task_5.jsonl"
 
 
 def _task_5():
-    tasks = json.loads(TASKS_PATH.read_text(encoding="utf-8"))
-    return next(task for task in tasks if task["task_id"] == 5)
+    return load_agent_task(5)
 
 
 @pytest.fixture(scope="module")
@@ -49,6 +49,8 @@ def test_fake_agent_solves_task_5_and_writes_step_records(tmp_path, shared_ws):
         workdir=shared_ws.root,
         run_id="test-task-5",
     )
+    assert result.matches_reference is None          # the loop never scores (D9)
+    result = fill_matches_reference(result, 5)       # scored after the run, by the script
 
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert result.final_answer == "NL"
@@ -74,6 +76,7 @@ def test_failed_code_is_logged_and_not_treated_as_success(tmp_path, shared_ws):
         _task_5(), FakeLLM(responses), StepLogger(path),
         workdir=shared_ws.root, run_id="failure-recovery",
     )
+    result = fill_matches_reference(result, 5)
 
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert result.final_answer == "NL" and result.matches_reference is True

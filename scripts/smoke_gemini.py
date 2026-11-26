@@ -26,9 +26,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from agent import config  # noqa: E402
 from agent.loop import _task_prompt  # noqa: E402  (exact baseline-v0 prompt builder)
+from agent.tasks import load_agent_task  # noqa: E402  (answer-free agent task file, D9)
 
 ENV_PATH = ROOT / ".env"
-TASKS_PATH = ROOT / "tasks" / "dev_tasks.json"
+REFERENCE_PATH = ROOT / "tasks" / "dev_tasks.json"   # evaluator side; only for the leak check
 OUT_PATH = ROOT / "runs" / "smoke_gemini.json"
 
 MODEL_ID = "gemini-3.1-flash-lite"
@@ -54,17 +55,17 @@ def read_env_key(path: Path, name: str = "MODEL_API_KEY") -> str | None:
 
 
 def build_prompts() -> dict[str, dict[str, str | None]]:
-    """Build both prompts. The task's answer is removed before anything is built."""
-    tasks = json.loads(TASKS_PATH.read_text(encoding="utf-8"))
-    task = dict(next(t for t in tasks if t["task_id"] == 5))
-    reference = task.pop("answer", None)
-    assert "answer" not in task
+    """Build both prompts from the answer-free agent task file."""
+    task = load_agent_task(5)
 
     system_prompt = (
         Path(config.__file__).with_name("prompts") / f"{config.PROMPT_VERSION}.txt"
     ).read_text(encoding="utf-8")
     user_prompt = _task_prompt(task)
 
+    # Leak check after the prompt is built (evaluator-side read, never sent).
+    rows = json.loads(REFERENCE_PATH.read_text(encoding="utf-8"))
+    reference = next(r for r in rows if r["task_id"] == 5).get("answer")
     if reference is not None:
         ref = str(reference)
         if ref in system_prompt or ref in user_prompt:

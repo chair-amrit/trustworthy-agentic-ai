@@ -29,7 +29,7 @@ GEMINI_SDK = "google-genai==3.6.1"
 # Retries (our own; the SDK's retries are switched off): only these HTTP statuses,
 # plus network/connection errors and timeouts (see llm.is_transient_network_error),
 # waiting these many seconds before retry 1, 2, 3, 4. Then the run stops ("api_failed").
-API_RETRY_STATUSES = (429, 500, 503)
+API_RETRY_STATUSES = (429, 500, 503, 504)
 API_RETRY_WAITS_S = (5, 15, 45, 90)
 API_MAX_REQUESTS_PER_MINUTE = 12        # pacing; every attempt counts as a request
 API_REQUEST_TIMEOUT_S = 120             # per attempt; a hung call fails as a timeout

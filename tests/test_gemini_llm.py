@@ -60,7 +60,7 @@ def _response(text="```python\nprint(1)\n```", thinking=None):
 
 def _err(code):
     status = {429: "RESOURCE_EXHAUSTED", 500: "INTERNAL", 503: "UNAVAILABLE",
-              400: "INVALID_ARGUMENT", 401: "UNAUTHENTICATED"}[code]
+              504: "DEADLINE_EXCEEDED", 400: "INVALID_ARGUMENT", 401: "UNAUTHENTICATED"}[code]
     cls = errors.ServerError if code >= 500 else errors.ClientError
     return cls(code, {"error": {"code": code, "message": f"m {KEY}", "status": status}})
 
@@ -153,6 +153,15 @@ def test_500_is_retried_too():
     llm, _, clock = _llm([_err(500), _response()])
     _gen(llm)
     assert llm.call_records[0]["n_attempts"] == 2 and clock.sleeps == [5]
+
+
+def test_504_is_retried_too():
+    llm, _, clock = _llm([_err(504), _response()])
+    _gen(llm)
+    rec = llm.call_records[0]
+    assert rec["n_attempts"] == 2 and clock.sleeps == [5]
+    assert rec["attempts"][0]["status"] == 504
+    assert 504 in config.API_RETRY_STATUSES and 504 in rec["settings"]["retry_statuses"]
 
 
 def test_connection_error_then_success(tmp_path):

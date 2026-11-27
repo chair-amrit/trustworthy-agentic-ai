@@ -17,6 +17,7 @@ MAX_OBS_CHARS = 2000    # observation truncation limit
 MAX_STEPS = 10          # termination: step budget
 MAX_INVALID = 3         # termination: consecutive invalid outputs
 PROMPT_VERSION = "system_v0"
+PROTOCOL_VERSION = "v0"   # action protocol (D1); v1 = Track A, decided 27 Nov 2026
 
 # --- Real model backend (D3, Track A only; decided 24 Nov 2026) -------------
 ENV_PATH = REPO_ROOT / ".env"           # MODEL_API_KEY, read in the parent only

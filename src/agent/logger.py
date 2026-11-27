@@ -30,6 +30,8 @@ STEP_FIELDS = frozenset(
         "logprobs",
         "terminated_reason",
         "path_flags",
+        "protocol",                 # v1 records only (v0 records stay as before)
+        "final_answer_discarded",   # v1 records only
     }
 )
 

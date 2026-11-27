@@ -10,7 +10,13 @@ from . import config
 from .executor import ExecResult, format_observation, run_step
 from .llm import ApiFailedError, Model, ScriptExhaustedError
 from .logger import StepLogger
-from .parser import Action, format_error, parse_action
+from .parser import (
+    DISCARDED_FINAL_NOTE,
+    Action,
+    check_protocol,
+    format_error,
+    parse_action,
+)
 from .pathscan import scan_code
 
 
@@ -104,8 +110,10 @@ def _record(
     terminated_reason: str | None = None,
     path_flags: list | None = None,
     prompt_version: str = config.PROMPT_VERSION,
+    protocol: str = "v0",
+    final_answer_discarded: bool = False,
 ) -> dict[str, object]:
-    return {
+    record = {
         "run_id": run_id,
         "task_id": task_id,
         "step": step,
@@ -126,6 +134,10 @@ def _record(
         "terminated_reason": terminated_reason,
         "path_flags": list(path_flags or []),
     }
+    if protocol != "v0":   # v0 records keep exactly the fields they had before
+        record["protocol"] = protocol
+        record["final_answer_discarded"] = final_answer_discarded
+    return record
 
 
 def run_agent(
@@ -139,14 +151,20 @@ def run_agent(
     max_invalid: int = config.MAX_INVALID,
     temperature: float = 0.0,
     prompt_version: str = config.PROMPT_VERSION,
+    protocol: str = config.PROTOCOL_VERSION,
 ) -> RunResult:
     """Run one task until a protocol-valid final answer or a configured limit.
 
     ``workdir`` is the run's working folder (see workspace.create_workspace);
     executed code runs there and nowhere else by default.
+
+    protocol "v0": baseline behaviour. protocol "v1" (D1, Track A):
+      rule 1: one code block + one FINAL ANSWER line -> the code runs, the answer
+              is discarded, the observation says so; logged final_answer_discarded.
     """
     if max_steps < 1 or max_invalid < 1:
         raise ValueError("max_steps and max_invalid must be at least 1")
+    check_protocol(protocol)
 
     system_prompt = system_prompt_path(prompt_version).read_text(encoding="utf-8")
     messages = [
@@ -175,7 +193,7 @@ def run_agent(
             raise ValueError("model.generate(n=1) must return exactly one completion")
 
         completion = completions[0]
-        action = parse_action(completion.text)
+        action = parse_action(completion.text, protocol)
         messages.append({"role": "assistant", "content": completion.text})
         observation: str | None = None
         execution: ExecResult | None = None
@@ -191,6 +209,8 @@ def run_agent(
             invalid_count = 0
             execution = run_step(prior_codes, action.payload, workdir)
             observation = format_observation(execution)
+            if action.discarded_final:   # v1 rule 1
+                observation += "\n" + DISCARDED_FINAL_NOTE
             if execution.ok:
                 prior_codes.append(action.payload)
             messages.append({"role": "user", "content": observation})
@@ -220,6 +240,8 @@ def run_agent(
                 terminated_reason=terminated_reason,
                 path_flags=step_flags,
                 prompt_version=prompt_version,
+                protocol=protocol,
+                final_answer_discarded=bool(action.discarded_final),
             )
         )
 

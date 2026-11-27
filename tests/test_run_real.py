@@ -55,7 +55,7 @@ def test_run_real_offline_success(tmp_path):
 
 def test_run_real_prompt_is_selectable(tmp_path):
     llm = _mock_llm([_response("FINAL ANSWER: NL")])
-    [m] = run_real.main(["--task", "5", "--prompt", "system_v0"], llm,
+    [m] = run_real.main(["--task", "5", "--prompt", "system_v0", "--protocol", "v0"], llm,
                         runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
     assert m["prompt_version"] == "system_v0"
     steps = _read_jsonl(tmp_path / "runs" / m["step_log"])
@@ -75,9 +75,31 @@ def test_run_real_offline_api_failed(tmp_path):
 
 
 def test_two_runs_get_separate_ids_and_folders(tmp_path):
-    llm = _mock_llm([_response("FINAL ANSWER: NL"), _response("FINAL ANSWER: XX")])
+    llm = _mock_llm([_response(CODE), _response("FINAL ANSWER: NL"),
+                     _response(CODE), _response("FINAL ANSWER: XX")])
     m1, m2 = run_real.main(["--task", "5", "--runs", "2"], llm,
                            runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
     assert m1["run_id"] != m2["run_id"] and m1["workspace"] != m2["workspace"]
     assert (m1["matches_reference"], m2["matches_reference"]) == (True, False)
-    assert m1["n_calls"] == m2["n_calls"] == 1
+    assert m1["n_calls"] == m2["n_calls"] == 2
+    assert m1["protocol"] == m2["protocol"] == "v1"
+
+
+def test_protocol_is_selectable_and_recorded(tmp_path):
+    # v0 accepts an immediate answer; v1 (default) would reject it (rule 2).
+    llm = _mock_llm([_response("FINAL ANSWER: NL")])
+    [m] = run_real.main(["--task", "5", "--protocol", "v0"], llm,
+                        runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+    assert m["protocol"] == "v0" and m["status"] == "final" and m["n_calls"] == 1
+    steps = _read_jsonl(tmp_path / "runs" / m["step_log"])
+    assert "protocol" not in steps[0]
+
+
+def test_default_protocol_v1_rejects_immediate_answer(tmp_path):
+    llm = _mock_llm([_response("FINAL ANSWER: NL"), _response(CODE), _response("FINAL ANSWER: NL")])
+    [m] = run_real.main(["--task", "5"], llm,
+                        runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+    assert m["protocol"] == "v1" and m["status"] == "final" and m["matches_reference"] is True
+    steps = _read_jsonl(tmp_path / "runs" / m["step_log"])
+    assert [s["action_type"] for s in steps] == ["invalid", "code", "final"]
+    assert all(s["protocol"] == "v1" for s in steps)

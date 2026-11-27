@@ -259,3 +259,14 @@ Real runs happen on the Windows laptop, without Docker, WSL2 or a remote VM.
     https://ai.google.dev/gemini-api/docs/pricing).
   - Log-probability support not checked (not needed for Track A; Track B checks it).
 - Track B's model is chosen after exams.
+
+**D1 (Track A), 27 Nov 2026: protocol v1 — rules 1 and 2 below.** The v0 and v1-prompt
+batches of 26–27 Nov are kept as an exploratory pilot.
+1. A reply with exactly one code block plus a FINAL ANSWER line: the code runs, the answer
+   line is discarded, and the observation adds: "Your FINAL ANSWER was ignored because the
+   reply also contained code. Check the output, then answer." Logged as
+   final_answer_discarded: true.
+2. A FINAL ANSWER given before any code block has run without error is rejected with:
+   "Run code to check the data before giving a FINAL ANSWER." Logged as a format error.
+- Protocol v0 (baseline behaviour) is kept and remains the default for the golden test.
+- Also on 27 Nov 2026: HTTP 504 added to the retryable API statuses.

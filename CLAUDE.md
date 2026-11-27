@@ -26,13 +26,17 @@ agents, and how do they relate to uncertainty and correctness during execution?
 - Keep exploratory pilot tasks separate from held-out confirmatory tasks.
 
 ## Repo map
-- src/agent/: parser.py, executor.py, answers.py, logger.py, llm.py (FakeLLM), loop.py
-  (Track B replaces it with a LangGraph graph), config.py, prompts/,
+- src/agent/: parser.py (protocols v0/v1), executor.py, answers.py, logger.py,
+  llm.py (FakeLLM; GeminiLLM = real Gemini backend with retries, pacing, call log),
+  envfile.py (reads MODEL_API_KEY from .env in the parent process only), loop.py
+  (Track B replaces it with a LangGraph graph), config.py,
+  prompts/ (system_v0.txt = baseline, system_v1.txt = lists all data/context files),
   workspace.py (per-run working folder, read-only inputs, checksums),
   tasks.py (agent-side loader, refuses tasks with "answer"),
   pathscan.py (ast path scan, run flags, review list)
 - tests/ (pytest; tests/golden/fake_task_5.jsonl is the baseline fake-run log), scripts/
-  (incl. make_agent_tasks.py: regenerates tasks/agent/ from tasks/dev_tasks.json),
+  (incl. make_agent_tasks.py: regenerates tasks/agent/ from tasks/dev_tasks.json;
+  run_real.py: real Gemini runs, --prompt/--protocol; run_fake.py; smoke_gemini.py),
   tasks/dev_tasks.json (10 DABStep dev tasks with public answers; evaluator side only),
   tasks/agent/dabstep_dev.json (same tasks without answers; the only file the agent side loads),
   research/, docs/ (build spec)
@@ -49,8 +53,23 @@ agents, and how do they relate to uncertainty and correctness during execution?
   - Track A (December minor project): extend the baseline-v0 harness (D13, decided 23 Nov 2026).
   - Track B (after exams): full LangGraph rebuild, following docs/AGENT_SPEC_AND_BUILD_PLAN.md
     and docs/PHASE0_PLAN.md.
-- Baseline harness runs a scripted fake model on DABStep task 5. No real LLM backend yet;
-  replay not implemented.
+- Baseline harness (scripts/run_fake.py) runs a scripted fake model on DABStep task 5;
+  the golden test uses it with prompt system_v0 and protocol v0. Replay not implemented.
+- Real runs: scripts/run_real.py --task <id> [--runs n] [--prompt system_v0|system_v1]
+  [--protocol v0|v1] (defaults system_v1, v1), backend GeminiLLM (llm.py, D3 settings).
+  Per run: runs/<run_id>.jsonl (steps), .calls.jsonl (API calls, linked by run_id+step),
+  .manifest.json (settings, protocol, prompt version + SHA-256, git commit, flags, result).
+  - Prompt system_v1 (src/agent/prompts/system_v1.txt): lists every file in data/context/
+    and names manual.md and payments-readme.md as documentation; its task message drops
+    v0's "data is available at data/context/payments.csv" sentence. system_v0 unchanged.
+  - Protocol v1 (D1, Track A): a code block + FINAL ANSWER reply runs the code and discards
+    the answer (logged final_answer_discarded); a FINAL ANSWER before any code has run
+    without error is rejected as a format error. Protocol v0 unchanged.
+  - Error output shown to the model has absolute paths scrubbed (executor.py).
+  - API retries on 429/500/503/504, network errors and timeouts (waits 5/15/45/90 s),
+    120 s request timeout, max 12 requests/min.
+  - Exploratory pilot (kept, not confirmatory): 26 Nov v0 batch and 27 Nov system_v1
+    batch on the 10 dev tasks, 1/10 correct each.
 - D5 decided 23 Nov 2026 (execution isolation): real runs happen on the Windows laptop.
   - The agent's working folder sits outside the repo.
   - Answer files are never inside the working folder.
@@ -77,7 +96,9 @@ agents, and how do they relate to uncertainty and correctness during execution?
 - D3 decided 24 Nov 2026 (Track A only): gemini-3.1-flash-lite, Gemini API free tier,
   google-genai==3.6.1; temperature 1.0, thinking_level "minimal", max_output_tokens 1024.
   Track B's model is chosen after exams.
-- Still open (never decide silently): D1, D2, D4, D6–D12, deferred to Track B
+- D1 decided 27 Nov 2026 (Track A only): protocol v1, see docs/DECISION_RECORD.md §11.
+  Track B's action protocol is still open.
+- Still open (never decide silently): D2, D4, D6–D12, deferred to Track B
   (see docs/PHASE0_PLAN.md §6).
   Decisions log: docs/DECISION_RECORD.md §11.
 - Only 10 DABStep dev tasks have public answers; more tasks need own validated

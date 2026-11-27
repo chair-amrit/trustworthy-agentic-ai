@@ -1,6 +1,7 @@
 """Minimal message-driven loop for the controlled data-analysis prototype."""
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -25,16 +26,68 @@ class RunResult:
     path_flags: tuple = ()
 
 
-def _task_prompt(task: Mapping[str, object]) -> str:
-    task_id = task.get("task_id", "unknown")
-    question = task.get("question", "")
-    guidelines = task.get("guidelines", "")
-    return (
-        f"Task ID: {task_id}\nQuestion: {question}\nGuidelines: {guidelines}\n"
+PROMPTS_DIR = Path(__file__).with_name("prompts")
+
+
+def system_prompt_path(version: str) -> Path:
+    path = PROMPTS_DIR / f"{version}.txt"
+    if not path.is_file():
+        raise FileNotFoundError(f"unknown prompt version {version!r} (no {path.name})")
+    return path
+
+
+def system_prompt_sha256(version: str) -> str:
+    """SHA-256 of the system prompt file's exact bytes."""
+    return hashlib.sha256(system_prompt_path(version).read_bytes()).hexdigest()
+
+
+# First user message per prompt version. Only {task_id}, {question} and
+# {guidelines} are filled in; the values are inserted as-is (never re-parsed).
+# system_v0 must stay byte-identical to baseline-v0.
+TASK_TEMPLATES = {
+    "system_v0": (
+        "Task ID: {task_id}\nQuestion: {question}\nGuidelines: {guidelines}\n"
         "Use Python code blocks to inspect the provided data and print intermediate "
         "results. The data is available at data/context/payments.csv relative to "
         "the execution directory. Finish with exactly one line: FINAL ANSWER: <value>."
-    )
+    ),
+    # v1: drops the sentence naming only payments.csv (the system prompt lists all files).
+    "system_v1": (
+        "Task ID: {task_id}\nQuestion: {question}\nGuidelines: {guidelines}\n"
+        "Use Python code blocks to inspect the provided data and print intermediate "
+        "results. Finish with exactly one line: FINAL ANSWER: <value>."
+    ),
+}
+
+
+def task_template(version: str) -> str:
+    try:
+        return TASK_TEMPLATES[version]
+    except KeyError:
+        raise KeyError(f"no task-message template for prompt version {version!r}") from None
+
+
+def check_prompt_version(version: str) -> None:
+    """Raise if the version lacks a system prompt file or a task-message template."""
+    system_prompt_path(version)
+    task_template(version)
+
+
+def prompt_sha256(version: str) -> str:
+    """SHA-256 over the system prompt bytes AND the task-message template (manifests)."""
+    h = hashlib.sha256()
+    h.update(system_prompt_path(version).read_bytes())
+    h.update(b"\n--- task-message template ---\n")
+    h.update(task_template(version).encode("utf-8"))
+    return h.hexdigest()
+
+
+def _task_prompt(task: Mapping[str, object], prompt_version: str = config.PROMPT_VERSION) -> str:
+    return task_template(prompt_version).format_map({
+        "task_id": task.get("task_id", "unknown"),
+        "question": task.get("question", ""),
+        "guidelines": task.get("guidelines", ""),
+    })
 
 
 def _record(
@@ -50,6 +103,7 @@ def _record(
     temperature: float = 0.0,
     terminated_reason: str | None = None,
     path_flags: list | None = None,
+    prompt_version: str = config.PROMPT_VERSION,
 ) -> dict[str, object]:
     return {
         "run_id": run_id,
@@ -57,7 +111,7 @@ def _record(
         "step": step,
         "model": model_name,
         "temperature": temperature,
-        "prompt_version": config.PROMPT_VERSION,
+        "prompt_version": prompt_version,
         "raw_output": completion_text,
         "action_type": action.type,
         "code": action.payload if action.type == "code" else None,
@@ -84,6 +138,7 @@ def run_agent(
     max_steps: int = config.MAX_STEPS,
     max_invalid: int = config.MAX_INVALID,
     temperature: float = 0.0,
+    prompt_version: str = config.PROMPT_VERSION,
 ) -> RunResult:
     """Run one task until a protocol-valid final answer or a configured limit.
 
@@ -93,11 +148,10 @@ def run_agent(
     if max_steps < 1 or max_invalid < 1:
         raise ValueError("max_steps and max_invalid must be at least 1")
 
-    prompt_path = Path(__file__).with_name("prompts") / f"{config.PROMPT_VERSION}.txt"
-    system_prompt = prompt_path.read_text(encoding="utf-8")
+    system_prompt = system_prompt_path(prompt_version).read_text(encoding="utf-8")
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": _task_prompt(task)},
+        {"role": "user", "content": _task_prompt(task, prompt_version)},
     ]
     prior_codes: list[str] = []
     run_flags: list[dict[str, object]] = []
@@ -165,6 +219,7 @@ def run_agent(
                 temperature=temperature,
                 terminated_reason=terminated_reason,
                 path_flags=step_flags,
+                prompt_version=prompt_version,
             )
         )
 

@@ -33,6 +33,15 @@ def test_run_real_offline_success(tmp_path):
         "gemini-3.1-flash-lite", 1.0, "minimal", 1024)
     assert "git_commit" in m and "git_dirty" in m
     assert m["workspace"].startswith(str(work))
+    from agent.loop import prompt_sha256, system_prompt_sha256
+    assert m["prompt_version"] == "system_v1"
+    assert m["prompt_sha256"] == prompt_sha256("system_v1")
+    assert m["system_prompt_sha256"] == system_prompt_sha256("system_v1")
+    first = llm._client.calls[0]
+    sent_system = first["config"].system_instruction
+    assert "data/context/fees.json" in sent_system and "payments-readme.md" in sent_system
+    sent_task = first["contents"][0].parts[0].text
+    assert sent_task.startswith("Task ID: 5\n") and "payments.csv" not in sent_task
 
     steps = _read_jsonl(runs / m["step_log"])
     calls = _read_jsonl(runs / m["call_log"])
@@ -42,6 +51,15 @@ def test_run_real_offline_success(tmp_path):
 
     text = "".join(p.read_text(encoding="utf-8") for p in runs.iterdir())
     assert KEY not in text and '"answer"' not in text
+
+
+def test_run_real_prompt_is_selectable(tmp_path):
+    llm = _mock_llm([_response("FINAL ANSWER: NL")])
+    [m] = run_real.main(["--task", "5", "--prompt", "system_v0"], llm,
+                        runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+    assert m["prompt_version"] == "system_v0"
+    steps = _read_jsonl(tmp_path / "runs" / m["step_log"])
+    assert steps[0]["prompt_version"] == "system_v0"
 
 
 def test_run_real_offline_api_failed(tmp_path):

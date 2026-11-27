@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -98,6 +99,81 @@ def _env(tmp_dir: Path) -> dict:
     return env
 
 
+# --- Path scrubbing of error output (D5) -------------------------------------
+# Tracebacks from library code contain absolute paths such as
+# D:\...\venv\Lib\site-packages\pandas\core\indexes\base.py, which would tell
+# the model where the repository (and its answer file) lives. Before error
+# output is shown, every absolute path is rewritten:
+#   inside the working folder        -> relative path (data/context/x.csv)
+#   site-packages / standard library -> <python-lib>/pandas/core/...
+#   the Python installation itself   -> <python>/...
+#   anything else (repo, home, ...)  -> <outside-path>
+_SEP = r"(?:\\\\|\\|/)"                       # "\\" (repr-escaped), "\" or "/"
+_TAIL = rf"((?:{_SEP}[^\\/\s\"'<>|]+)*)"      # the rest of the path, segment by segment
+_OUTSIDE = "<outside-path>"
+# Outside paths may contain spaces ("C:\Users\First Last\..."), so for them the
+# whole rest of the path up to a quote or the end of the line is replaced.
+# Over-hiding is the safe direction here.
+_GREEDY_TAIL = r"""((?:\\\\|\\|/)[^"'\r\n<>|]*)?"""
+# Fallback for any other absolute path: a drive (C:\ C:/ C:\\) or a UNC prefix
+# (\\server or, repr-escaped, \\\\server), only at the START of a token, so a
+# relative repr path like 'data\\x' is left alone.
+_ANY_ABS = re.compile(
+    r"""(?<![^\s"'(\[=,])(?:[A-Za-z]:(?:\\\\|\\|/)|\\\\\\\\|\\\\)[^"'\r\n<>|]*"""
+)
+
+
+def _root_pattern(root: str, greedy: bool = False) -> re.Pattern:
+    parts = [p for p in re.split(r"[\\/]+", root) if p]
+    body = _SEP.join(re.escape(p) for p in parts)
+    if greedy:
+        return re.compile(body + _GREEDY_TAIL + r"""(?![^\\/\s"'<>|])""", re.IGNORECASE)
+    return re.compile(body + _TAIL + r"(?![^\\/\s\"'<>|])", re.IGNORECASE)
+
+
+def _path_roots(workdir: Path) -> list[tuple[re.Pattern, str]]:
+    """(pattern, label) pairs, most specific first. label None = make relative."""
+    import sysconfig
+
+    def forms(p) -> list[str]:
+        out = []
+        for cand in (str(p), str(Path(p).resolve())):
+            if cand and cand not in out:
+                out.append(cand)
+        return out
+
+    paths = sysconfig.get_paths()
+    roots: list[tuple[str, str | None]] = []
+    roots += [(f, None) for f in forms(workdir)]
+    for key in ("purelib", "platlib", "stdlib", "platstdlib"):
+        if paths.get(key):
+            roots += [(f, "<python-lib>") for f in forms(paths[key])]
+    for prefix in {sys.prefix, sys.base_prefix, sys.exec_prefix}:
+        roots += [(f, "<python>") for f in forms(prefix)]
+    # Known outside locations: the whole path (tail included) becomes <outside-path>.
+    for outside in (config.REPO_ROOT, Path.home()):
+        roots += [(f, _OUTSIDE) for f in forms(outside)]
+    # Longest root first so the most specific one wins.
+    roots.sort(key=lambda r: len(r[0]), reverse=True)
+    return [(_root_pattern(r, greedy=(label == _OUTSIDE)), label) for r, label in roots]
+
+
+def scrub_paths(text: str, workdir: Path | str) -> str:
+    """Rewrite absolute paths in ``text`` so no host location is revealed."""
+    if not text:
+        return text
+    for pattern, label in _path_roots(Path(workdir)):
+        def repl(m: re.Match, label=label) -> str:
+            tail = re.sub(_SEP, "/", m.group(1)).lstrip("/")
+            if label is None:
+                return tail or "."
+            if label == _OUTSIDE:
+                return _OUTSIDE
+            return f"{label}/{tail}" if tail else label
+        text = pattern.sub(repl, text)
+    return _ANY_ABS.sub(_OUTSIDE, text)
+
+
 def run_step(
     prior_codes: list[str],
     code: str,
@@ -132,7 +208,8 @@ def run_step(
         )
 
     stdout = proc.stdout.replace("\r\n", "\n")
-    stderr = proc.stderr.replace("\r\n", "\n")
+    # Error output is scrubbed of absolute paths before the model can see it (D5).
+    stderr = scrub_paths(proc.stderr.replace("\r\n", "\n"), workdir)
 
     before, sep, after = stdout.partition(MARKER)
     if not sep:

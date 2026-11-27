@@ -29,12 +29,15 @@ sys.path.insert(0, str(ROOT))
 from agent import config  # noqa: E402
 from agent.llm import GeminiLLM  # noqa: E402
 from agent.logger import StepLogger  # noqa: E402
-from agent.loop import run_agent  # noqa: E402
+from agent.loop import (  # noqa: E402
+    check_prompt_version, prompt_sha256, run_agent, system_prompt_sha256,
+)
 from agent.tasks import load_agent_task  # noqa: E402
 from agent.workspace import create_workspace  # noqa: E402
 from scripts.run_fake import fill_matches_reference, write_run_outputs  # noqa: E402
 
 RUNS_DIR = ROOT / "runs"
+DEFAULT_PROMPT = "system_v1"
 
 
 def git_state(repo: Path = ROOT) -> dict[str, object]:
@@ -70,7 +73,7 @@ def call_summary(records: list[dict]) -> dict[str, object]:
 
 
 def run_once(task_id: int, llm: GeminiLLM, run_index: int, *, runs_dir: Path = RUNS_DIR,
-             work_root: Path | None = None) -> dict:
+             work_root: Path | None = None, prompt_version: str = DEFAULT_PROMPT) -> dict:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"gemini-task-{task_id}-{stamp}-r{run_index}"
     step_log = runs_dir / f"{run_id}.jsonl"
@@ -82,7 +85,7 @@ def run_once(task_id: int, llm: GeminiLLM, run_index: int, *, runs_dir: Path = R
     started = datetime.now(timezone.utc).isoformat()
 
     result = run_agent(task, llm, StepLogger(step_log), workdir=ws.root, run_id=run_id,
-                       temperature=config.GEMINI_TEMPERATURE)
+                       temperature=config.GEMINI_TEMPERATURE, prompt_version=prompt_version)
     result = fill_matches_reference(result, task_id)   # evaluator-side, after the run
 
     steps_used = (len(step_log.read_text(encoding="utf-8").splitlines())
@@ -95,7 +98,9 @@ def run_once(task_id: int, llm: GeminiLLM, run_index: int, *, runs_dir: Path = R
         "matches_reference": result.matches_reference,
         "steps_used": steps_used,
         "max_steps": config.MAX_STEPS,
-        "prompt_version": config.PROMPT_VERSION,
+        "prompt_version": prompt_version,
+        "prompt_sha256": prompt_sha256(prompt_version),          # system prompt + task template
+        "system_prompt_sha256": system_prompt_sha256(prompt_version),
         "settings": llm.settings(),
         **call_summary(llm.call_records),
         **git_state(),
@@ -110,17 +115,25 @@ def main(argv: list[str] | None = None, llm: GeminiLLM | None = None, *,
     p = argparse.ArgumentParser()
     p.add_argument("--task", type=int, required=True)
     p.add_argument("--runs", type=int, default=1)
+    p.add_argument("--prompt", default=DEFAULT_PROMPT,
+                   help=f"system prompt version, a file in src/agent/prompts/ (default {DEFAULT_PROMPT})")
     args = p.parse_args(argv)
     if args.runs < 1:
         p.error("--runs must be at least 1")
+    try:
+        check_prompt_version(args.prompt)
+    except (FileNotFoundError, KeyError) as exc:
+        p.error(str(exc))
 
     llm = llm or GeminiLLM()   # one instance: pacing carries over between runs
     manifests = []
     for i in range(1, args.runs + 1):
-        m = run_once(args.task, llm, i, runs_dir=runs_dir, work_root=work_root)
+        m = run_once(args.task, llm, i, runs_dir=runs_dir, work_root=work_root,
+                     prompt_version=args.prompt)
         manifests.append(m)
         print(json.dumps({k: m[k] for k in (
-            "run_id", "status", "final_answer", "matches_reference", "steps_used", "n_calls",
+            "run_id", "prompt_version", "status", "final_answer", "matches_reference",
+            "steps_used", "n_calls",
             "n_attempts", "total_tokens", "flagged", "flag_reasons")}, indent=2))
     return manifests
 

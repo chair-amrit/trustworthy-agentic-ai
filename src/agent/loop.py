@@ -12,6 +12,7 @@ from .llm import ApiFailedError, Model, ScriptExhaustedError
 from .logger import StepLogger
 from .parser import (
     DISCARDED_FINAL_NOTE,
+    EARLY_FINAL_REASON,
     Action,
     check_protocol,
     format_error,
@@ -161,6 +162,8 @@ def run_agent(
     protocol "v0": baseline behaviour. protocol "v1" (D1, Track A):
       rule 1: one code block + one FINAL ANSWER line -> the code runs, the answer
               is discarded, the observation says so; logged final_answer_discarded.
+      rule 2: a FINAL ANSWER before any code block has run without error is
+              rejected as a format error (counts toward max_invalid).
     """
     if max_steps < 1 or max_invalid < 1:
         raise ValueError("max_steps and max_invalid must be at least 1")
@@ -194,6 +197,9 @@ def run_agent(
 
         completion = completions[0]
         action = parse_action(completion.text, protocol)
+        # v1 rule 2: no FINAL ANSWER until some code block has run without error.
+        if protocol == "v1" and action.type == "final" and not prior_codes:
+            action = Action("invalid", "", EARLY_FINAL_REASON)
         messages.append({"role": "assistant", "content": completion.text})
         observation: str | None = None
         execution: ExecResult | None = None
@@ -203,7 +209,10 @@ def run_agent(
 
         if action.type == "invalid":
             invalid_count += 1
-            observation = format_error(action.reason)
+            if action.reason == EARLY_FINAL_REASON:
+                observation = f"Format error: {EARLY_FINAL_REASON}."
+            else:
+                observation = format_error(action.reason)
             messages.append({"role": "user", "content": observation})
         elif action.type == "code":
             invalid_count = 0

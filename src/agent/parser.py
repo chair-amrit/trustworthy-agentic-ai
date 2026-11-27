@@ -9,7 +9,8 @@ with 'FINAL ANSWER:'. Anything else is invalid.
 v1 protocol (D1, Track A, 27 Nov 2026) differs in one parsing case: a reply with
 exactly one code block AND exactly one FINAL ANSWER line is a code action; the
 answer line is discarded (Action.discarded_final holds it) and the loop tells
-the model so (rule 1). Everything else parses as in v0.
+the model so. The loop also rejects a FINAL ANSWER given before any code block
+has run without error (rule 2; see loop.py). Everything else parses as in v0.
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ DISCARDED_FINAL_NOTE = (
     "Your FINAL ANSWER was ignored because the reply also contained code. "
     "Check the output, then answer."
 )
+EARLY_FINAL_REASON = "Run code to check the data before giving a FINAL ANSWER"
 
 
 @dataclass(frozen=True)

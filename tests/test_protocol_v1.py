@@ -1,5 +1,5 @@
-"""Protocol v1 (D1, Track A): rule 1 (code + answer -> run code, discard answer).
-v0 is unchanged."""
+"""Protocol v1 (D1, Track A): rule 1 (code + answer -> run code, discard answer) and
+rule 2 (no FINAL ANSWER before code has run without error). v0 is unchanged."""
 import json
 
 import pytest
@@ -10,6 +10,7 @@ from agent.logger import StepLogger
 from agent.loop import run_agent
 from agent.parser import (
     DISCARDED_FINAL_NOTE,
+    EARLY_FINAL_REASON,
     Action,
     parse_action,
 )
@@ -77,6 +78,42 @@ def test_rule1_note_also_added_when_code_fails(tmp_path):
     _, recs = _run([BAD_CODE + "\nFINAL ANSWER: XX", CODE, "FINAL ANSWER: NL"], tmp_path)
     assert recs[0]["returncode"] != 0 and recs[0]["final_answer_discarded"] is True
     assert recs[0]["observation"].endswith(DISCARDED_FINAL_NOTE)
+
+
+# --- rule 2 ------------------------------------------------------------------
+
+def test_rule2_answer_before_any_code_is_rejected(tmp_path):
+    result, recs = _run(["FINAL ANSWER: XX", CODE, "FINAL ANSWER: NL"], tmp_path)
+    s1 = recs[0]
+    assert s1["action_type"] == "invalid" and s1["final_answer"] is None
+    assert s1["observation"] == f"Format error: {EARLY_FINAL_REASON}."
+    assert s1["observation"] == "Format error: Run code to check the data before giving a FINAL ANSWER."
+    assert result.final_answer == "NL" and len(recs) == 3
+
+
+def test_rule2_answer_after_only_failed_code_is_rejected(tmp_path):
+    result, recs = _run([BAD_CODE, "FINAL ANSWER: XX", CODE, "FINAL ANSWER: NL"], tmp_path)
+    assert [r["action_type"] for r in recs] == ["code", "invalid", "code", "final"]
+    assert EARLY_FINAL_REASON in recs[1]["observation"]
+    assert result.final_answer == "NL"
+
+
+def test_rule2_answer_accepted_after_successful_code(tmp_path):
+    result, recs = _run([CODE, "FINAL ANSWER: NL"], tmp_path)
+    assert [r["action_type"] for r in recs] == ["code", "final"]
+    assert result.final_answer == "NL"
+
+
+def test_rule2_rejections_count_toward_max_invalid(tmp_path):
+    result, recs = _run(["FINAL ANSWER: A", "FINAL ANSWER: B", "FINAL ANSWER: C"], tmp_path)
+    assert result.terminated_reason == "max_invalid" and result.final_answer is None
+    assert all(r["action_type"] == "invalid" for r in recs)
+
+
+def test_rules_combined_code_plus_answer_then_answer(tmp_path):
+    # rule 1 runs the code; that success unlocks the next FINAL ANSWER (rule 2 satisfied)
+    result, recs = _run([CODE_PLUS_ANSWER, "FINAL ANSWER: NL"], tmp_path)
+    assert [r["action_type"] for r in recs] == ["code", "final"]
 
 
 # --- v0 unchanged ------------------------------------------------------------

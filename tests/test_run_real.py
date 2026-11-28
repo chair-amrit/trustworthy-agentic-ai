@@ -1,6 +1,8 @@
 """Step 3: offline test of scripts/run_real.py with a mocked Gemini client (no API calls)."""
 import json
 
+import pytest
+
 from agent.llm import GeminiLLM
 from scripts import run_real
 from tests.test_gemini_llm import FakeClient, FakeClock, KEY, _err, _response
@@ -60,6 +62,61 @@ def test_run_real_prompt_is_selectable(tmp_path):
     assert m["prompt_version"] == "system_v0"
     steps = _read_jsonl(tmp_path / "runs" / m["step_log"])
     assert steps[0]["prompt_version"] == "system_v0"
+
+
+def test_defaults_are_d3_and_recorded(tmp_path):
+    llm = _mock_llm([_response(CODE), _response("FINAL ANSWER: NL")])
+    [m] = run_real.main(["--task", "5"], llm, runs_dir=tmp_path / "runs",
+                        work_root=tmp_path / "work")
+    assert (m["thinking_level"], m["max_output_tokens"]) == ("minimal", 1024)
+    assert m["settings_are_d3_default"] is True
+    assert m["finish_reasons"] == ["STOP", "STOP"]
+
+
+def test_thinking_and_max_tokens_flags_build_the_model(tmp_path, monkeypatch):
+    built = {}
+
+    def fake_gemini(**kwargs):
+        built.update(kwargs)
+        clock = FakeClock()
+        return GeminiLLM(client=FakeClient([_response(CODE), _response("FINAL ANSWER: NL")]),
+                         api_key=KEY, sleep=clock.sleep, clock=clock, **kwargs)
+
+    monkeypatch.setattr(run_real, "GeminiLLM", fake_gemini)
+    [m] = run_real.main(["--task", "5", "--thinking", "low", "--max-output-tokens", "4096"],
+                        runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+    assert built == {"thinking_level": "low", "max_output_tokens": 4096}
+    assert (m["thinking_level"], m["max_output_tokens"]) == ("low", 4096)
+    assert m["settings_are_d3_default"] is False
+    assert (m["settings"]["thinking_level"], m["settings"]["max_output_tokens"]) == ("low", 4096)
+    assert m["status"] == "final" and m["matches_reference"] is True
+
+
+def test_flags_reach_the_api_request(tmp_path):
+    clock = FakeClock()
+    client = FakeClient([_response(CODE), _response("FINAL ANSWER: NL")])
+    llm = GeminiLLM(client=client, api_key=KEY, sleep=clock.sleep, clock=clock,
+                    thinking_level="low", max_output_tokens=4096)
+    run_real.main(["--task", "5", "--thinking", "low", "--max-output-tokens", "4096"], llm,
+                  runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+    cfg = client.calls[0]["config"]
+    assert cfg.max_output_tokens == 4096
+    assert "low" in str(cfg.thinking_config.thinking_level).lower()
+
+
+@pytest.mark.parametrize("argv", [
+    ["--thinking", "high"], ["--thinking", "medium"], ["--max-output-tokens", "0"],
+])
+def test_bad_flag_values_are_refused(tmp_path, argv):
+    with pytest.raises(SystemExit):
+        run_real.main(["--task", "5", *argv], _mock_llm([]), runs_dir=tmp_path / "runs",
+                      work_root=tmp_path / "work")
+
+
+def test_flags_must_match_an_injected_model(tmp_path):
+    with pytest.raises(SystemExit):
+        run_real.main(["--task", "5", "--thinking", "low"], _mock_llm([]),
+                      runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
 
 
 def test_run_real_offline_api_failed(tmp_path):

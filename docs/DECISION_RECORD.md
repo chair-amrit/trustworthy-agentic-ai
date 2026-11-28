@@ -259,6 +259,9 @@ Real runs happen on the Windows laptop, without Docker, WSL2 or a remote VM.
     https://ai.google.dev/gemini-api/docs/pricing).
   - Log-probability support not checked (not needed for Track A; Track B checks it).
 - Track B's model is chosen after exams.
+- 28 Nov 2026: exploratory batch with thinking_level low, max_output_tokens 4096 (thinking
+  counts toward the limit). The setting for the repeated runs is chosen after this batch, on
+  the same 10 exposed dev tasks; reported as exploratory.
 
 **D1 (Track A), 27 Nov 2026: protocol v1 — rules 1 and 2 below.** The v0 and v1-prompt
 batches of 26–27 Nov are kept as an exploratory pilot.

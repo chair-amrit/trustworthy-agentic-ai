@@ -153,6 +153,7 @@ def run_agent(
     temperature: float = 0.0,
     prompt_version: str = config.PROMPT_VERSION,
     protocol: str = config.PROTOCOL_VERSION,
+    max_tokens: int = 1024,
 ) -> RunResult:
     """Run one task until a protocol-valid final answer or a configured limit.
 
@@ -186,7 +187,8 @@ def run_agent(
         if callable(begin_step):
             begin_step(run_id, step)
         try:
-            completions = model.generate(messages, n=1, temperature=temperature)
+            completions = model.generate(messages, n=1, temperature=temperature,
+                                         max_tokens=max_tokens)
         except ScriptExhaustedError:
             return RunResult(None, "model_exhausted", None, tuple(run_flags))
         except ApiFailedError:

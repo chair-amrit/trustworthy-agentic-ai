@@ -262,6 +262,8 @@ Real runs happen on the Windows laptop, without Docker, WSL2 or a remote VM.
 - 28 Nov 2026: exploratory batch with thinking_level low, max_output_tokens 4096 (thinking
   counts toward the limit). The setting for the repeated runs is chosen after this batch, on
   the same 10 exposed dev tasks; reported as exploratory.
+- 28 Nov 2026: low-thinking batch scored 1/10 with 5 max_steps and ~2x tokens; repeated runs
+  use minimal (D3 default).
 
 **D1 (Track A), 27 Nov 2026: protocol v1 — rules 1 and 2 below.** The v0 and v1-prompt
 batches of 26–27 Nov are kept as an exploratory pilot.

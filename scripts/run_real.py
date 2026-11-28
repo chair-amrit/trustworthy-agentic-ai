@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -41,6 +42,7 @@ RUNS_DIR = ROOT / "runs"
 DEFAULT_PROMPT = "system_v1"
 DEFAULT_PROTOCOL = "v1"
 THINKING_LEVELS = ("minimal", "low")   # flag choices; D3 default is "minimal"
+BATCH_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 def git_state(repo: Path = ROOT) -> dict[str, object]:
@@ -77,7 +79,8 @@ def call_summary(records: list[dict]) -> dict[str, object]:
 
 def run_once(task_id: int, llm: GeminiLLM, run_index: int, *, runs_dir: Path = RUNS_DIR,
              work_root: Path | None = None, prompt_version: str = DEFAULT_PROMPT,
-             protocol: str = DEFAULT_PROTOCOL) -> dict:
+             protocol: str = DEFAULT_PROTOCOL, batch_id: str | None = None,
+             n_repeats: int = 1) -> dict:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"gemini-task-{task_id}-{stamp}-r{run_index}"
     step_log = runs_dir / f"{run_id}.jsonl"
@@ -96,6 +99,9 @@ def run_once(task_id: int, llm: GeminiLLM, run_index: int, *, runs_dir: Path = R
     steps_used = (len(step_log.read_text(encoding="utf-8").splitlines())
                   if step_log.exists() else 0)
     extra = {
+        "batch_id": batch_id,
+        "repeat_index": run_index,      # 1..n_repeats within this invocation
+        "n_repeats": n_repeats,
         "started_utc": started,
         "finished_utc": datetime.now(timezone.utc).isoformat(),
         "status": result.terminated_reason,
@@ -135,9 +141,16 @@ def main(argv: list[str] | None = None, llm: GeminiLLM | None = None, *,
     p.add_argument("--max-output-tokens", type=int, default=config.GEMINI_MAX_OUTPUT_TOKENS,
                    help=f"max output tokens incl. thinking (default "
                         f"{config.GEMINI_MAX_OUTPUT_TOKENS}, D3)")
+    p.add_argument("--batch-id", default=None,
+                   help="shared ID for all runs of this invocation "
+                        "(letters, digits, '.', '_', '-'; default: batch-<UTC time>)")
     args = p.parse_args(argv)
     if args.runs < 1:
         p.error("--runs must be at least 1")
+    batch_id = (args.batch_id if args.batch_id is not None
+                else "batch-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
+    if not BATCH_ID_RE.match(batch_id):
+        p.error(f"unsafe --batch-id {batch_id!r}: use letters, digits, '.', '_' or '-'")
     if args.max_output_tokens < 1:
         p.error("--max-output-tokens must be at least 1")
     try:
@@ -153,10 +166,12 @@ def main(argv: list[str] | None = None, llm: GeminiLLM | None = None, *,
     manifests = []
     for i in range(1, args.runs + 1):
         m = run_once(args.task, llm, i, runs_dir=runs_dir, work_root=work_root,
-                     prompt_version=args.prompt, protocol=args.protocol)
+                     prompt_version=args.prompt, protocol=args.protocol,
+                     batch_id=batch_id, n_repeats=args.runs)
         manifests.append(m)
         print(json.dumps({k: m[k] for k in (
-            "run_id", "protocol", "prompt_version", "thinking_level", "max_output_tokens",
+            "run_id", "batch_id", "repeat_index", "protocol", "prompt_version",
+            "thinking_level", "max_output_tokens",
             "status", "final_answer", "matches_reference",
             "steps_used", "n_calls",
             "n_attempts", "total_tokens", "flagged", "flag_reasons")}, indent=2))

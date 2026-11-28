@@ -119,6 +119,34 @@ def test_flags_must_match_an_injected_model(tmp_path):
                       runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
 
 
+def test_batch_id_shared_and_repeat_index_recorded(tmp_path):
+    llm = _mock_llm([_response(CODE), _response("FINAL ANSWER: NL")] * 3)
+    ms = run_real.main(["--task", "5", "--runs", "3", "--batch-id", "rep-A"], llm,
+                       runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+    assert [m["batch_id"] for m in ms] == ["rep-A"] * 3
+    assert [m["repeat_index"] for m in ms] == [1, 2, 3]
+    assert all(m["n_repeats"] == 3 for m in ms)
+    assert len({m["run_id"] for m in ms}) == 3
+    on_disk = [json.loads((tmp_path / "runs" / f"{m['run_id']}.manifest.json")
+                          .read_text(encoding="utf-8")) for m in ms]
+    assert [(d["batch_id"], d["repeat_index"]) for d in on_disk] == [("rep-A", 1), ("rep-A", 2), ("rep-A", 3)]
+
+
+def test_batch_id_generated_when_not_given(tmp_path):
+    llm = _mock_llm([_response(CODE), _response("FINAL ANSWER: NL")] * 2)
+    m1, m2 = run_real.main(["--task", "5", "--runs", "2"], llm,
+                           runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+    assert m1["batch_id"] == m2["batch_id"] and m1["batch_id"].startswith("batch-")
+    assert (m1["repeat_index"], m2["repeat_index"]) == (1, 2)
+
+
+@pytest.mark.parametrize("bad", ["../x", "a b", "", "-lead", "x" * 65])
+def test_unsafe_batch_id_is_refused(tmp_path, bad):
+    with pytest.raises(SystemExit):
+        run_real.main(["--task", "5", "--batch-id", bad], _mock_llm([]),
+                      runs_dir=tmp_path / "runs", work_root=tmp_path / "work")
+
+
 def test_run_real_offline_api_failed(tmp_path):
     runs = tmp_path / "runs"
     llm = _mock_llm([_err(503)] * 5)

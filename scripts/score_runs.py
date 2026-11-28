@@ -11,7 +11,8 @@ For every runs/*.manifest.json:
                      whitespace, and list order? true/false (false for correct/no answer)
 
 Writes runs/scores.csv and prints a per-batch summary (batch = commit + model + prompt
-+ protocol). Reference answers are NEVER printed; only scores and counts.
++ protocol + thinking_level + max_output_tokens). Reference answers are NEVER printed;
+only scores and counts.
 
 Older manifests lack some fields:
   - protocol missing   -> "v0" (protocols were added in commit 6a5543c; earlier code = v0)
@@ -76,6 +77,16 @@ def format_only_mismatch(final_answer: str | None, reference: str | None) -> boo
 
 # --- collecting runs ---------------------------------------------------------
 
+def thinking_settings(m: dict) -> tuple[str, str]:
+    """(thinking_level, max_output_tokens) for the batch key.
+
+    Newer manifests have them at top level; older real runs only inside "settings";
+    fake runs have neither ("n/a")."""
+    settings = m.get("settings") or {}
+    thinking = m.get("thinking_level") or settings.get("thinking_level") or "n/a"
+    max_out = m.get("max_output_tokens") or settings.get("max_output_tokens") or "n/a"
+    return str(thinking), str(max_out)
+
 def _from_step_log(runs_dir: Path, run_id: str) -> tuple[str | None, str | None]:
     log = runs_dir / f"{run_id}.jsonl"
     if not log.exists():
@@ -101,7 +112,8 @@ def collect_rows(runs_dir: Path = RUNS_DIR, reference_path: Path = REFERENCE_PAT
         prompt = m.get("prompt_version") or "system_v0"
         protocol = m.get("protocol") or "v0"
         commit = (m.get("git_commit") or "")[:7] or "no-commit"
-        batch = f"{commit}|{m.get('model', '?')}|{prompt}|{protocol}"
+        thinking, max_out = thinking_settings(m)
+        batch = f"{commit}|{m.get('model', '?')}|{prompt}|{protocol}|{thinking}|{max_out}"
         ref = refs.get(task_id)
         rows.append({
             "run_id": run_id,
@@ -151,7 +163,8 @@ def summarise(rows: list[dict]) -> "OrderedDict[str, dict]":
 
 def print_summary(batches) -> None:
     """Scores and counts only. Never prints reference answers."""
-    print("Per batch (commit | model | prompt | protocol). Official score = answers.py.")
+    print("Per batch (commit | model | prompt | protocol | thinking | max_output_tokens). "
+          "Official score = answers.py.")
     for key, b in batches.items():
         note = "  [protocol not in manifest -> v0]" if b["protocol_implied"] else ""
         print(f"- {key}{note}")

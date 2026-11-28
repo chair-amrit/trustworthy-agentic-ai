@@ -104,8 +104,29 @@ def test_rows_scores_and_implied_fields(setup):
     f = rows["fake-1"]
     assert (f["final_answer"], f["status"], f["score"]) == ("0.123217", "final", 1)
     assert (f["prompt"], f["protocol"]) == ("system_v0", "v0")
-    assert rows["new-1"]["batch"] == "bbbbbbb|gemini-x|system_v1|v1"
-    assert rows["old-1"]["batch"] == "aaaaaaa|gemini-x|system_v0|v0"
+    assert rows["new-1"]["batch"] == "bbbbbbb|gemini-x|system_v1|v1|n/a|n/a"
+    assert rows["old-1"]["batch"] == "aaaaaaa|gemini-x|system_v0|v0|n/a|n/a"
+    assert rows["fake-1"]["batch"] == "no-commit|fake-scripted|system_v0|v0|n/a|n/a"
+
+
+def test_batch_key_separates_thinking_settings_at_same_commit(tmp_path):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    ref_path = tmp_path / "dev_tasks.json"
+    ref_path.write_text(json.dumps(REFS), encoding="utf-8")
+    same = dict(git_commit="ccccccc0000", prompt_version="system_v1", protocol="v1")
+    _manifest(runs, "min-1", 1, "B. BE", thinking_level="minimal", max_output_tokens=1024, **same)
+    _manifest(runs, "low-1", 1, "BE", thinking_level="low", max_output_tokens=4096, **same)
+    # older manifest: settings only inside "settings"
+    _manifest(runs, "old-min", 1, "B. BE",
+              settings={"thinking_level": "minimal", "max_output_tokens": 1024}, **same)
+    rows = {r["run_id"]: r for r in sr.collect_rows(runs, ref_path)}
+    assert rows["min-1"]["batch"] == "ccccccc|gemini-x|system_v1|v1|minimal|1024"
+    assert rows["low-1"]["batch"] == "ccccccc|gemini-x|system_v1|v1|low|4096"
+    assert rows["old-min"]["batch"] == rows["min-1"]["batch"]
+    batches = sr.summarise(list(rows.values()))
+    assert batches["ccccccc|gemini-x|system_v1|v1|minimal|1024"]["runs"] == 2
+    assert batches["ccccccc|gemini-x|system_v1|v1|low|4096"]["runs"] == 1
 
 
 def test_csv_written_with_required_columns(setup):
@@ -126,9 +147,9 @@ def test_csv_written_with_required_columns(setup):
 def test_summary_per_batch_and_no_reference_printed(setup, capsys):
     runs, ref_path = setup
     batches = sr.summarise(sr.collect_rows(runs, ref_path))
-    b = batches["bbbbbbb|gemini-x|system_v1|v1"]
+    b = batches["bbbbbbb|gemini-x|system_v1|v1|n/a|n/a"]
     assert (b["runs"], b["correct"], b["wrong"], b["no_answer"], b["format_only"]) == (5, 1, 3, 1, 1)
-    assert batches["aaaaaaa|gemini-x|system_v0|v0"]["protocol_implied"] is True
+    assert batches["aaaaaaa|gemini-x|system_v0|v0|n/a|n/a"]["protocol_implied"] is True
     sr.main([], runs_dir=runs, reference_path=ref_path)
     out = capsys.readouterr().out
     assert "correct 1/5" in out and "format-only diagnostic: 1" in out
